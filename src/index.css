@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@theme {
+  --color-hvu-navy: #1e3a8a;
+  --color-hvu-navy-dark: #0b2545;
+  --color-hvu-navy-deep: #0a1128;
+  --color-hvu-red: #be1e2d;
+  --color-hvu-red-dark: #990000;
+  --color-hvu-gold: #ffd700;
+  --color-hvu-blue: #0066ff;
+  --color-hvu-blue-dark: #0050cc;
+  --color-hvu-surface: #f8fafc;
+}
+
+@layer base {
+  body {
+    @apply min-h-screen bg-[#f8fafc] text-slate-900 antialiased selection:bg-red-100 selection:text-red-900;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-image: 
+      radial-gradient(1200px 600px at 50% -100px, rgba(30, 58, 138, 0.05), transparent 70%),
+      radial-gradient(800px 400px at 90% 800px, rgba(190, 30, 45, 0.03), transparent 60%);
+    background-attachment: fixed;
+  }
+
+  /* Refined Minimal Custom Scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.25);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 116, 139, 0.45);
+  }
+}

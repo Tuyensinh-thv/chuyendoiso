@@ -1,0 +1,8 @@
+{
+  "name": "Remix HVU TaskMaster - Quản lý tiến độ NQ57",
+  "description": "Hệ thống quản lý công việc, theo dõi tiến độ Nghị quyết 57-NQ/TW, nhắc nhở hàng ngày và lưu trữ minh chứng Google Drive.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
