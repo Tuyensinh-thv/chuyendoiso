@@ -108,15 +108,16 @@ export async function saveTaskToSupabase(task: TaskNQ57): Promise<boolean> {
       return false;
     }
 
-    // Also sync subtasks / checklist items
+    // Also sync subtasks / checklist items cleanly
+    await supabase.from('task_subtasks').delete().eq('task_id', task.id);
     if (task.checklist && task.checklist.length > 0) {
       const subtaskRows = task.checklist.map((item) => ({
         id: item.id,
         task_id: task.id,
         title: item.title,
-        completed: item.completed,
+        completed: !!item.completed,
       }));
-      await supabase.from('task_subtasks').upsert(subtaskRows, { onConflict: 'id' });
+      await supabase.from('task_subtasks').insert(subtaskRows);
     }
 
     return true;

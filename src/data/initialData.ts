@@ -67,7 +67,7 @@ export const INITIAL_ACCOUNTS: UserAccount[] = [
   {
     email: 'loanln@hvu.edu.vn',
     hoTen: 'Phạm Thanh Loan',
-    donVi: 'Phòng QLKH - QHQT',
+    donVi: 'Phòng KHCN & HTQT',
     vaiTro: 'To_Chuyen_Trach',
     avatar: '👩‍💻',
     passwordHash: '755ba7f3aae8ee88024d0d0ee89bbd3ad80dfa9dee5f6f0dc74c914d9507ea51',
@@ -85,7 +85,7 @@ export const INITIAL_ACCOUNTS: UserAccount[] = [
   {
     email: 'Phunglinh@hvu.edu.vn',
     hoTen: 'Phùng Duy Linh',
-    donVi: 'Phòng Khảo thí & ĐBCL',
+    donVi: 'Phòng Khảo thí và Đảm bảo chất lượng',
     vaiTro: 'To_Chuyen_Trach',
     avatar: '👩‍💻',
     passwordHash: '755ba7f3aae8ee88024d0d0ee89bbd3ad80dfa9dee5f6f0dc74c914d9507ea51',
@@ -103,7 +103,7 @@ export const INITIAL_ACCOUNTS: UserAccount[] = [
   {
     email: 'nguyenquanghung77dhhv@gmail.com',
     hoTen: 'Nguyễn Quang Hưng',
-    donVi: 'Phòng QLSV-HV',
+    donVi: 'Phòng Quản lý sinh viên và học viên',
     vaiTro: 'Don_Vi',
     avatar: '🎓',
     passwordHash: '755ba7f3aae8ee88024d0d0ee89bbd3ad80dfa9dee5f6f0dc74c914d9507ea51',

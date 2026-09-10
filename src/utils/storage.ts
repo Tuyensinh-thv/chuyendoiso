@@ -35,7 +35,9 @@ export function loadCategoriesFromStorage(): CustomCategory[] {
   } catch (err) {
     console.error('Failed to load categories from storage', err);
   }
-  saveCategoriesToStorage(DEFAULT_CATEGORIES);
+  try {
+    localStorage.setItem(CATEGORIES_KEY, JSON.stringify(DEFAULT_CATEGORIES));
+  } catch (e) {}
   return DEFAULT_CATEGORIES;
 }
 
@@ -173,7 +175,9 @@ export function loadTasksFromStorage(): TaskNQ57[] {
   } catch (err) {
     console.error('Failed to load tasks from storage', err);
   }
-  saveTasksToStorage(INITIAL_TASKS);
+  try {
+    localStorage.setItem(TASKS_KEY, JSON.stringify(INITIAL_TASKS));
+  } catch (e) {}
   return INITIAL_TASKS;
 }
 
@@ -183,10 +187,6 @@ export function saveTasksToStorage(tasks: TaskNQ57[]): void {
   } catch (err) {
     console.error('Failed to save tasks to storage', err);
   }
-  // Asynchronous background sync to Supabase PostgreSQL
-  saveAllTasksToSupabase(tasks).catch((err) => {
-    console.warn('Supabase background save tasks:', err);
-  });
 }
 
 export function loadCurrentUser(): UserAccount {

@@ -80,14 +80,9 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     if (task) {
       setFormState({ 
         ...task,
-        checklist: task.checklist || [
-          { id: 'cl_1', title: 'Xây dựng dự thảo và kế hoạch chi tiết', completed: (task.tiendo || 0) >= 30 },
-          { id: 'cl_2', title: 'Họp rà soát và lấy ý kiến các đơn vị phối hợp', completed: (task.tiendo || 0) >= 60 },
-          { id: 'cl_3', title: 'Hoàn thiện hồ sơ & minh chứng kiểm thử', completed: (task.tiendo || 0) >= 90 },
-          { id: 'cl_4', title: 'Trình Ban Giám hiệu nghiệm thu & ban hành', completed: (task.tiendo || 0) === 100 },
-        ],
+        checklist: Array.isArray(task.checklist) ? task.checklist : [],
         approvalStatus: task.approvalStatus || (task.tiendo === 100 ? 'Da_Duyet' : (task.filesMinhChung?.length ? 'Cho_Duyet' : 'Chua_Nop')),
-        comments: task.comments || [],
+        comments: Array.isArray(task.comments) ? task.comments : [],
       });
       setExternalDriveUrl(task.linkMinhChung || '');
     }
@@ -223,6 +218,20 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     }));
   };
 
+  const handleApplyStandardChecklist = () => {
+    const defaultChecklist: TaskChecklistItem[] = [
+      { id: 'cl_' + Date.now() + '_1', title: 'Xây dựng kế hoạch và phân công chi tiết', completed: (formState.tiendo || 0) >= 30 },
+      { id: 'cl_' + Date.now() + '_2', title: 'Họp rà soát và lấy ý kiến các đơn vị phối hợp', completed: (formState.tiendo || 0) >= 60 },
+      { id: 'cl_' + Date.now() + '_3', title: 'Hoàn thiện hồ sơ & minh chứng kiểm thử', completed: (formState.tiendo || 0) >= 90 },
+      { id: 'cl_' + Date.now() + '_4', title: 'Trình Ban Giám hiệu nghiệm thu & ban hành', completed: (formState.tiendo || 0) === 100 },
+    ];
+    setFormState((prev) => ({
+      ...prev,
+      checklist: defaultChecklist,
+      ngayCapNhat: new Date().toISOString(),
+    }));
+  };
+
   const handleSyncProgressFromChecklist = () => {
     const list = formState.checklist || [];
     if (list.length === 0) return;
@@ -288,8 +297,47 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   };
 
   const handleSave = () => {
+    let currentChecklist = [...(formState.checklist || [])];
+    if (newChecklistTitle.trim()) {
+      currentChecklist.push({
+        id: 'cl_' + Date.now(),
+        title: newChecklistTitle.trim(),
+        completed: false,
+      });
+    }
+
+    let currentDirectives = [...(formState.directivesHistory || [])];
+    let currentYKien = formState.yKienChiDao;
+    if (newDirective.trim()) {
+      const now = new Date().toLocaleString('vi-VN');
+      const directiveEntry = {
+        id: 'dir_' + Date.now(),
+        author: currentUser.hoTen,
+        role: currentUser.vaiTro === 'Lanh_Dao' ? 'Lãnh đạo trường' : 'Tổ CĐS',
+        content: newDirective.trim(),
+        createdAt: now,
+      };
+      currentDirectives.push(directiveEntry);
+      currentYKien = newDirective.trim();
+    }
+
+    let currentComments = [...(formState.comments || [])];
+    if (newComment.trim()) {
+      currentComments.push({
+        id: 'cmt_' + Date.now(),
+        author: currentUser.hoTen,
+        role: currentUser.vaiTro === 'Admin' ? 'Quản trị viên' : currentUser.vaiTro === 'Lanh_Dao' ? 'Lãnh đạo trường' : currentUser.vaiTro === 'To_Chuyen_Trach' ? 'Tổ CĐS' : currentUser.donVi,
+        content: newComment.trim(),
+        createdAt: new Date().toLocaleDateString('vi-VN') + ' ' + new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+      });
+    }
+
     const updated = {
       ...formState,
+      checklist: currentChecklist,
+      directivesHistory: currentDirectives,
+      yKienChiDao: currentYKien,
+      comments: currentComments,
       linkMinhChung: externalDriveUrl.trim(),
       ngayCapNhat: new Date().toISOString(),
     };
@@ -842,30 +890,45 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               {rightTab === 'checklist' ? (
                 <div className="space-y-1">
                   <div className="space-y-1 max-h-28 overflow-y-auto pr-0.5">
-                    {(formState.checklist || []).map((item) => (
-                      <div key={item.id} className="flex items-center justify-between p-1.5 rounded bg-white border border-zinc-200">
-                        <button
-                          type="button"
-                          disabled={!canEditChecklist}
-                          onClick={() => handleToggleChecklist(item.id)}
-                          className="flex items-center gap-2 text-left flex-1 cursor-pointer"
-                        >
-                          {item.completed ? (
-                            <CheckSquare className="w-3.5 h-3.5 text-zinc-900 shrink-0" />
-                          ) : (
-                            <Square className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                          )}
-                          <span className={`text-[11px] ${item.completed ? 'line-through text-zinc-400' : 'text-zinc-900 font-medium'}`}>
-                            {item.title}
-                          </span>
-                        </button>
+                    {(!formState.checklist || formState.checklist.length === 0) ? (
+                      <div className="text-center py-2 px-1">
+                        <p className="text-[11px] text-zinc-400 italic mb-1.5">Chưa có đầu việc con trong checklist.</p>
                         {canEditChecklist && (
-                          <button type="button" onClick={() => handleRemoveChecklistItem(item.id)} className="text-zinc-400 hover:text-rose-600 p-0.5">
-                            <Trash2 className="w-3 h-3" />
+                          <button
+                            type="button"
+                            onClick={handleApplyStandardChecklist}
+                            className="px-2 py-0.5 text-[10px] font-semibold text-[#0B2545] bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs"
+                          >
+                            <span>+ Áp dụng quy trình chuẩn 4 bước</span>
                           </button>
                         )}
                       </div>
-                    ))}
+                    ) : (
+                      formState.checklist.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between p-1.5 rounded bg-white border border-zinc-200">
+                          <button
+                            type="button"
+                            disabled={!canEditChecklist}
+                            onClick={() => handleToggleChecklist(item.id)}
+                            className="flex items-center gap-2 text-left flex-1 cursor-pointer"
+                          >
+                            {item.completed ? (
+                              <CheckSquare className="w-3.5 h-3.5 text-zinc-900 shrink-0" />
+                            ) : (
+                              <Square className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                            )}
+                            <span className={`text-[11px] ${item.completed ? 'line-through text-zinc-400' : 'text-zinc-900 font-medium'}`}>
+                              {item.title}
+                            </span>
+                          </button>
+                          {canEditChecklist && (
+                            <button type="button" onClick={() => handleRemoveChecklistItem(item.id)} className="text-zinc-400 hover:text-rose-600 p-0.5 cursor-pointer">
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    )}
                   </div>
                   {canEditChecklist && (
                     <div className="flex items-center gap-1 pt-1">
@@ -874,14 +937,19 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                         placeholder="+ Thêm đầu việc con (Enter)..."
                         value={newChecklistTitle}
                         onChange={(e) => setNewChecklistTitle(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddChecklistItem()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddChecklistItem();
+                          }
+                        }}
                         className="flex-1 text-[11px] border border-zinc-300 rounded px-2 py-1 bg-white text-zinc-900 focus:outline-none focus:border-zinc-900"
                       />
                       <button
                         type="button"
                         onClick={handleAddChecklistItem}
                         disabled={!newChecklistTitle.trim()}
-                        className="px-2 py-1 text-[11px] font-semibold text-white bg-zinc-900 hover:bg-zinc-800 rounded disabled:opacity-40 shrink-0"
+                        className="px-2 py-1 text-[11px] font-semibold text-white bg-zinc-900 hover:bg-zinc-800 rounded disabled:opacity-40 shrink-0 cursor-pointer"
                       >
                         Thêm
                       </button>

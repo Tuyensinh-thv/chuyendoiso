@@ -92,12 +92,30 @@ export function getRolePermissions(role: UserRole): RolePermissions {
   }
 }
 
+const UNIT_SYNONYMS: string[][] = [
+  ['quản lý sinh viên và học viên', 'qlsv-hv', 'qlsv', 'sinh viên và học viên', 'quản lý sinh viên', 'ql sv&hv', 'qlsv&hv'],
+  ['khoa học công nghệ và hợp tác quốc tế', 'phòng khcn & htqt', 'khcn & htqt', 'khcn', 'qlkh - qhqt', 'qlkh', 'qhqt', 'htqt', 'khoa học công nghệ', 'hợp tác quốc tế'],
+  ['khảo thí và đảm bảo chất lượng', 'khảo thí & đbcl', 'khảo thí', 'đảm bảo chất lượng', 'đbcl'],
+  ['đào tạo', 'phòng đào tạo'],
+  ['văn phòng'],
+  ['kế hoạch tài chính', 'kế hoạch - tài chính', 'khtc'],
+  ['trạm y tế', 'y tế'],
+  ['học liệu và truyền thông', 'trung tâm học liệu', 'học liệu'],
+  ['tổ chuyển đổi số', 'tổ cđs', 'chuyển đổi số trường dhhv'],
+  ['kỹ thuật công nghệ', 'khoa kt-cn', 'khoa ktcn', 'kt-cn', 'ktcn'],
+  ['khoa tiếng trung quốc', 'khoa tiếng trung', 'tiếng trung'],
+  ['khoa nt&tdtt', 'nghệ thuật và thể dục thể thao', 'nghệ thuật & tdtt', 'nt&tdtt'],
+  ['ban biên tập tạp chí', 'tạp chí'],
+  ['khởi nghiệp và đổi mới sáng tạo', 'trung tâm kn & đmst', 'kn & đmst'],
+];
+
 /**
  * Kiểm tra một nhiệm vụ có thuộc hoặc liên quan tới đơn vị hay không
  * Hỗ trợ:
  * - Đơn vị chủ trì (1 hoặc nhiều đơn vị cách nhau dấu phẩy hoặc chấm phẩy)
  * - Đơn vị phối hợp (danh sách nhiều đơn vị)
  * - Khái niệm chung: "Các đơn vị thuộc và trực thuộc", "Toàn trường"
+ * - Tên viết tắt hoặc từ đồng nghĩa (QLSV-HV, KHCN, ĐBCL, KTCN,...)
  */
 export function isTaskRelatedToUnit(task: TaskNQ57, unitName?: string): boolean {
   if (!unitName) return true;
@@ -111,20 +129,30 @@ export function isTaskRelatedToUnit(task: TaskNQ57, unitName?: string): boolean 
 
   const chuTri = (task.donViChuTri || '').toLowerCase();
   const phoiHop = (task.donViPhoiHop || '').toLowerCase();
+  const combinedUnits = `${chuTri} ; ${phoiHop}`;
 
-  // Kiểm tra đơn vị chủ trì
-  if (chuTri.includes(target)) return true;
-
-  // Kiểm tra đơn vị phối hợp
+  // 1. Kiểm tra trực tiếp chuỗi con hai chiều
+  if (chuTri.includes(target) || target.includes(chuTri)) return true;
   if (phoiHop.includes(target)) return true;
 
-  // Cụm từ áp dụng cho toàn bộ các đơn vị
+  // 2. Cụm từ áp dụng cho toàn bộ các đơn vị
   if (
     phoiHop.includes('các đơn vị thuộc và trực thuộc') ||
     phoiHop.includes('toàn trường') ||
     phoiHop.includes('các đơn vị')
   ) {
     return true;
+  }
+
+  // 3. Kiểm tra qua từ điển viết tắt / đồng nghĩa
+  for (const group of UNIT_SYNONYMS) {
+    const targetMatchesGroup = group.some((syn) => target.includes(syn) || syn.includes(target));
+    if (targetMatchesGroup) {
+      const taskMatchesGroup = group.some((syn) => combinedUnits.includes(syn));
+      if (taskMatchesGroup) {
+        return true;
+      }
+    }
   }
 
   return false;

@@ -220,7 +220,6 @@ export default function App() {
 
   // Automatic background backup if OAuth is enabled or auto-push to GAS if configured
   useEffect(() => {
-    saveTasksToStorage(tasks);
     const config = loadSyncConfig();
     const token = loadAccessToken();
     if (config.autoBackup && token && config.spreadsheetId) {
@@ -254,6 +253,7 @@ export default function App() {
         if (isMounted) {
           if (sbTasks && sbTasks.length > 0) {
             setTasks(sbTasks);
+            saveTasksToStorage(sbTasks);
           }
           if (sbAccounts && sbAccounts.length > 0) {
             handleUpdateAccounts(sbAccounts);
@@ -278,6 +278,7 @@ export default function App() {
         const freshTasks = await fetchTasksFromSupabase();
         if (freshTasks && freshTasks.length > 0 && isMounted) {
           setTasks(freshTasks);
+          saveTasksToStorage(freshTasks);
         }
       } catch (e) {
         console.warn('Realtime task fetch error:', e);
@@ -301,6 +302,7 @@ export default function App() {
         const freshTasks = await fetchTasksFromSupabase();
         if (freshTasks && freshTasks.length > 0 && isMounted) {
           setTasks(freshTasks);
+          saveTasksToStorage(freshTasks);
         }
       } catch (e) {
         // silent
@@ -509,7 +511,7 @@ export default function App() {
   }, [filteredTasks, sortBy, sortOrder]);
 
   // Handlers
-  const handleSaveTask = (updatedTask: TaskNQ57) => {
+  const handleSaveTask = async (updatedTask: TaskNQ57) => {
     const computed: TaskNQ57 = {
       ...updatedTask,
       trangThai: computeTaskStatus(updatedTask),
@@ -524,9 +526,14 @@ export default function App() {
     });
 
     // 2. Direct immediate Supabase persistence
-    saveTaskToSupabase(computed).catch((err) => {
+    try {
+      const success = await saveTaskToSupabase(computed);
+      if (!success) {
+        console.warn('Direct Supabase save task returned false for', computed.id);
+      }
+    } catch (err) {
       console.warn('Direct Supabase save task error:', err);
-    });
+    }
 
     // 3. Record audit log
     recordAuditLog({
