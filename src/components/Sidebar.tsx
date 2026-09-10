@@ -132,19 +132,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <aside 
-      className={`bg-gradient-to-b from-[#0B2545] via-[#0C223E] to-[#0A1128] border-r border-slate-700/60 flex-col shrink-0 transition-all duration-200 select-none h-[calc(100vh-4rem)] text-slate-300 ${
-        isOpen
-          ? 'fixed md:sticky top-16 left-0 bottom-0 z-40 w-64 flex shadow-2xl md:shadow-none'
-          : 'hidden md:flex md:w-16 md:sticky top-16 z-20'
-      }`}
-      aria-label="Thanh điều hướng Hệ thống HVU"
-    >
+    <>
+      {/* Mobile overlay backdrop */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 md:hidden"
+          onClick={closeOnMobile}
+          aria-hidden="true"
+        />
+      )}
+      <aside 
+        className={`bg-gradient-to-b from-[#0B2545] via-[#0C223E] to-[#0A1128] border-r border-slate-700/60 flex-col shrink-0 transition-all duration-200 select-none h-[calc(100vh-4rem)] text-slate-300 ${
+          isOpen
+            ? 'fixed md:sticky top-16 left-0 bottom-0 z-40 w-64 flex shadow-2xl md:shadow-none'
+            : 'hidden md:flex md:w-16 md:sticky top-16 z-20'
+        }`}
+        aria-label="Thanh điều hướng Hệ thống HVU"
+      >
       {/* 1. HVU "+ Tạo công việc" Button */}
       <div className="p-3.5 pb-2">
         {isCanCreateTask ? (
           <button
-            onClick={onOpenNewTaskModal}
+            onClick={() => { onOpenNewTaskModal(); closeOnMobile(); }}
             className={`w-full flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl bg-[#BE1E2D] hover:bg-[#990000] text-white font-bold text-xs transition-all shadow-md shadow-red-950/40 cursor-pointer ${
               !isOpen && 'p-2.5 rounded-xl'
             }`}
@@ -155,7 +164,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         ) : (
           <button
-            onClick={onOpenDailyReminder}
+            onClick={() => { onOpenDailyReminder(); closeOnMobile(); }}
             className={`w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 font-semibold text-xs transition-all border border-white/10 cursor-pointer ${
               !isOpen && 'p-2.5 rounded-xl'
             }`}
@@ -180,7 +189,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Table / List View */}
           <button
-            onClick={() => onSelectView('table')}
+            onClick={() => { onSelectView('table'); closeOnMobile(); }}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all font-medium cursor-pointer ${
               activeView === 'table'
                 ? 'bg-[#0066FF] text-white font-bold shadow-md shadow-blue-900/40'
@@ -201,7 +210,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Kanban Board */}
           <button
-            onClick={() => onSelectView('kanban')}
+            onClick={() => { onSelectView('kanban'); closeOnMobile(); }}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all font-medium cursor-pointer ${
               activeView === 'kanban'
                 ? 'bg-[#0066FF] text-white font-bold shadow-md shadow-blue-900/40'
@@ -217,7 +226,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Gantt Chart */}
           <button
-            onClick={() => onSelectView('gantt')}
+            onClick={() => { onSelectView('gantt'); closeOnMobile(); }}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all font-medium cursor-pointer ${
               activeView === 'gantt'
                 ? 'bg-[#0066FF] text-white font-bold shadow-md shadow-blue-900/40'
@@ -238,7 +247,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Calendar */}
           <button
-            onClick={() => onSelectView('calendar')}
+            onClick={() => { onSelectView('calendar'); closeOnMobile(); }}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all font-medium cursor-pointer ${
               activeView === 'calendar'
                 ? 'bg-[#0066FF] text-white font-bold shadow-md shadow-blue-900/40'
@@ -254,7 +263,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Stats & Report */}
           <button
-            onClick={() => onSelectView('stats')}
+            onClick={() => { onSelectView('stats'); closeOnMobile(); }}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all font-medium cursor-pointer ${
               activeView === 'stats'
                 ? 'bg-[#0066FF] text-white font-bold shadow-md shadow-blue-900/40'
@@ -287,7 +296,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* All Tasks */}
           <button
-            onClick={() => onSelectPerspective('all')}
+            onClick={() => { onSelectPerspective('all'); closeOnMobile(); }}
             className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
               selectedPerspective === 'all'
                 ? 'bg-slate-800 text-white font-semibold'
@@ -308,7 +317,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Assigned to Me / My Unit */}
           <button
-            onClick={() => onSelectPerspective('my_assigned')}
+            onClick={() => { onSelectPerspective('my_assigned'); closeOnMobile(); }}
             className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
               selectedPerspective === 'my_assigned'
                 ? 'bg-slate-800 text-white font-semibold'
@@ -331,7 +340,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Delegated / Created by current role */}
           <button
-            onClick={() => onSelectPerspective('my_delegated')}
+            onClick={() => { onSelectPerspective('my_delegated'); closeOnMobile(); }}
             className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
               selectedPerspective === 'my_delegated'
                 ? 'bg-slate-800 text-white font-semibold'
@@ -352,7 +361,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Pending Deliverables Approval */}
           <button
-            onClick={() => onSelectPerspective('pending_approval')}
+            onClick={() => { onSelectPerspective('pending_approval'); closeOnMobile(); }}
             className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
               selectedPerspective === 'pending_approval'
                 ? 'bg-slate-800 text-white font-semibold border border-slate-700'
@@ -373,7 +382,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Overdue & Urgent */}
           <button
-            onClick={() => onSelectPerspective('overdue_urgent')}
+            onClick={() => { onSelectPerspective('overdue_urgent'); closeOnMobile(); }}
             className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
               selectedPerspective === 'overdue_urgent'
                 ? 'bg-rose-950/40 text-rose-300 font-semibold border border-rose-900/50'
@@ -394,7 +403,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* AI Recommended Focus */}
           <button
-            onClick={() => onSelectPerspective('ai_suggested')}
+            onClick={() => { onSelectPerspective('ai_suggested'); closeOnMobile(); }}
             className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
               selectedPerspective === 'ai_suggested'
                 ? 'bg-amber-950/40 text-amber-300 font-semibold border border-amber-900/50'
@@ -436,7 +445,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             return (
               <button
                 key={plan}
-                onClick={() => onSelectPlanGroup(isSelected ? 'all' : plan)}
+                onClick={() => { onSelectPlanGroup(isSelected ? 'all' : plan); closeOnMobile(); }}
                 className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all text-left font-medium cursor-pointer ${
                   isSelected
                     ? 'bg-slate-800 text-white font-semibold'
@@ -463,7 +472,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           <div className={`grid gap-1 px-1 ${isOpen ? 'grid-cols-3' : 'grid-cols-1'}`}>
             <button
-              onClick={() => onSelectPriority(selectedPriority === 'High' ? 'all' : 'High')}
+              onClick={() => { onSelectPriority(selectedPriority === 'High' ? 'all' : 'High'); closeOnMobile(); }}
               className={`py-1 px-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer text-center ${
                 selectedPriority === 'High'
                   ? 'bg-rose-950 border-rose-800 text-rose-300 shadow-2xs'
@@ -475,7 +484,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
 
             <button
-              onClick={() => onSelectPriority(selectedPriority === 'Medium' ? 'all' : 'Medium')}
+              onClick={() => { onSelectPriority(selectedPriority === 'Medium' ? 'all' : 'Medium'); closeOnMobile(); }}
               className={`py-1 px-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer text-center ${
                 selectedPriority === 'Medium'
                   ? 'bg-amber-950 border-amber-800 text-amber-300 shadow-2xs'
@@ -487,7 +496,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
 
             <button
-              onClick={() => onSelectPriority(selectedPriority === 'Low' ? 'all' : 'Low')}
+              onClick={() => { onSelectPriority(selectedPriority === 'Low' ? 'all' : 'Low'); closeOnMobile(); }}
               className={`py-1 px-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer text-center ${
                 selectedPriority === 'Low'
                   ? 'bg-slate-800 border-slate-700 text-slate-300 shadow-2xs'
@@ -523,7 +532,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             return (
               <button
                 key={cat.id}
-                onClick={() => onSelectCategory(isSelected ? 'all' : cat.id)}
+                onClick={() => { onSelectCategory(isSelected ? 'all' : cat.id); closeOnMobile(); }}
                 className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
                   isSelected
                     ? 'bg-slate-800 text-white font-semibold'
@@ -554,7 +563,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="p-2 border-t border-slate-700/60 bg-[#071526]/80 space-y-1 shrink-0">
         {perms.canSyncGoogleSheets && (
           <button
-            onClick={onOpenGoogleSync}
+            onClick={() => { onOpenGoogleSync(); closeOnMobile(); }}
             className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-emerald-400 hover:text-emerald-300 hover:bg-white/10 transition-colors text-xs cursor-pointer font-semibold"
             title="Đồng bộ hóa & Sao lưu Google Sheets/Drive"
           >
@@ -564,7 +573,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         <button
-          onClick={onOpenDriveManager}
+          onClick={() => { onOpenDriveManager(); closeOnMobile(); }}
           className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors text-xs cursor-pointer font-medium"
           title="Kho lưu trữ minh chứng Google Drive"
         >
@@ -573,7 +582,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
 
         <button
-          onClick={onOpenDirectives}
+          onClick={() => { onOpenDirectives(); closeOnMobile(); }}
           className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-amber-300 hover:text-amber-200 hover:bg-white/10 transition-colors text-xs cursor-pointer font-medium"
           title={perms.canDirectLead ? "Trung tâm ban hành chỉ đạo Ban Giám hiệu" : "Xem ý kiến chỉ đạo của Ban Giám hiệu"}
         >
@@ -587,7 +596,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {perms.canViewAuditLogs && (
           <button
-            onClick={onOpenAuditLogs}
+            onClick={() => { onOpenAuditLogs(); closeOnMobile(); }}
             className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors text-xs cursor-pointer font-medium"
             title="Xem lịch sử thao tác và nhật ký hoạt động hệ thống"
           >
@@ -598,7 +607,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {perms.canExportReports && (
           <button
-            onClick={onExportData}
+            onClick={() => { onExportData(); closeOnMobile(); }}
             className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors text-xs cursor-pointer font-medium"
             title="Xuất file báo cáo Excel (CSV)"
           >
@@ -609,7 +618,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {onOpenUserManagement && perms.canManageUsers && (
           <button
-            onClick={onOpenUserManagement}
+            onClick={() => { onOpenUserManagement(); closeOnMobile(); }}
             className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-blue-300 hover:text-blue-200 hover:bg-white/10 transition-colors text-xs cursor-pointer font-medium"
             title="Quản lý tài khoản cán bộ & phân quyền"
           >
@@ -620,7 +629,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {perms.canConfigureAi && (
           <button
-            onClick={onOpenEthicalAiSettings}
+            onClick={() => { onOpenEthicalAiSettings(); closeOnMobile(); }}
             className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors text-xs cursor-pointer font-medium"
             title="Cài đặt AI & Quy tắc đạo đức"
           >
@@ -662,5 +671,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
     </aside>
+    </>
   );
 };
