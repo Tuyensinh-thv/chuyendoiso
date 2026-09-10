@@ -12,7 +12,8 @@ export interface RolePermissions {
   canUpdateProgress: boolean;     // Admin, To_Chuyen_Trach, Don_Vi (đơn vị chỉ sửa NV của mình)
   canViewAllUnits: boolean;       // Admin, Lanh_Dao, To_Chuyen_Trach (Don_Vi chỉ xem đơn vị mình)
   canViewAuditLogs: boolean;      // Admin, To_Chuyen_Trach
-  canExportReports: boolean;      // Tất cả vai trò
+  canExportReports: boolean;      // Admin, To_Chuyen_Trach (Lãnh đạo & Đơn vị không cần xuất file thô)
+  canManageDrive: boolean;        // Admin, To_Chuyen_Trach (quản lý kho minh chứng toàn hệ thống)
 }
 
 /**
@@ -34,6 +35,7 @@ export function getRolePermissions(role: UserRole): RolePermissions {
         canViewAllUnits: true,
         canViewAuditLogs: true,
         canExportReports: true,
+        canManageDrive: true,
       };
 
     case 'Lanh_Dao':
@@ -49,7 +51,8 @@ export function getRolePermissions(role: UserRole): RolePermissions {
         canUpdateProgress: false,
         canViewAllUnits: true,       // Xem toàn bộ dữ liệu & biểu đồ
         canViewAuditLogs: false,
-        canExportReports: true,
+        canExportReports: false,     // Lãnh đạo điều hành qua Dashboard/KPI, không xuất file thô
+        canManageDrive: false,      // Lãnh đạo không quản lý kho file
       };
 
     case 'To_Chuyen_Trach':
@@ -65,7 +68,8 @@ export function getRolePermissions(role: UserRole): RolePermissions {
         canUpdateProgress: true,     // Cập nhật tiến độ
         canViewAllUnits: true,       // Xem toàn bộ dữ liệu & biểu đồ
         canViewAuditLogs: true,      // Xem nhật ký hoạt động
-        canExportReports: true,
+        canExportReports: true,      // Tổ chuyên trách xuất báo cáo tổng hợp
+        canManageDrive: true,       // Quản lý kho minh chứng chung
       };
 
     case 'Don_Vi':
@@ -82,7 +86,8 @@ export function getRolePermissions(role: UserRole): RolePermissions {
         canUpdateProgress: true,     // Cập nhật tiến độ & checklist đơn vị mình
         canViewAllUnits: false,      // Chỉ xem đơn vị mình
         canViewAuditLogs: false,
-        canExportReports: true,
+        canExportReports: false,
+        canManageDrive: false,
       };
   }
 }

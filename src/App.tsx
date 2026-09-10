@@ -124,6 +124,16 @@ export default function App() {
     saveCurrentUser(account);
     setIsLoggedIn(true);
     sessionStorage.setItem('hvu_is_logged_in', 'true');
+    if (account.vaiTro === 'Lanh_Dao') {
+      setActiveView('stats');
+      setSelectedPerspective('pending_approval');
+    } else if (account.vaiTro === 'Don_Vi') {
+      setActiveView('table');
+      setSelectedPerspective('my_assigned');
+    } else {
+      setActiveView('table');
+      setSelectedPerspective('all');
+    }
   };
 
   const handleLogout = () => {
@@ -141,10 +151,19 @@ export default function App() {
     }
     return true;
   });
-  const [activeView, setActiveView] = useState<'kanban' | 'table' | 'gantt' | 'calendar' | 'stats'>('table');
+  const [activeView, setActiveView] = useState<'kanban' | 'table' | 'gantt' | 'calendar' | 'stats'>(() => {
+    const user = loadCurrentUser();
+    if (user.vaiTro === 'Lanh_Dao') return 'stats';
+    return 'table';
+  });
 
-  // Base Wework Perspective (My Tasks)
-  const [selectedPerspective, setSelectedPerspective] = useState<BaseWeworkPerspective>('all');
+  // Base Wework Perspective (Role-Tailored)
+  const [selectedPerspective, setSelectedPerspective] = useState<BaseWeworkPerspective>(() => {
+    const user = loadCurrentUser();
+    if (user.vaiTro === 'Lanh_Dao') return 'pending_approval';
+    if (user.vaiTro === 'Don_Vi') return 'my_assigned';
+    return 'all';
+  });
 
   // Modals
   const [selectedTask, setSelectedTask] = useState<TaskNQ57 | null>(null);

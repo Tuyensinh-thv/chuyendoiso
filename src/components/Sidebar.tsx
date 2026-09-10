@@ -117,6 +117,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const perms = getRolePermissions(currentUser.vaiTro);
   const isCanCreateTask = perms.canCreateTask;
+  const isLeader = currentUser.vaiTro === 'Lanh_Dao';
+  const isUnit = currentUser.vaiTro === 'Don_Vi';
 
   const resetAllFilters = () => {
     onSelectPerspective('all');
@@ -149,7 +151,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }`}
         aria-label="Thanh điều hướng Hệ thống HVU"
       >
-      {/* 1. HVU "+ Tạo công việc" Button */}
+      {/* 1. HVU Action Button */}
       <div className="p-3.5 pb-2">
         {isCanCreateTask ? (
           <button
@@ -161,6 +163,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <Plus className="w-4 h-4 text-white shrink-0" />
             {isOpen && <span className="tracking-wide uppercase text-[11px]">Thêm công việc</span>}
+          </button>
+        ) : isLeader ? (
+          <button
+            onClick={() => { onOpenDirectives(); closeOnMobile(); }}
+            className={`w-full flex items-center justify-center gap-2.5 py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs transition-all shadow-md shadow-amber-950/30 cursor-pointer ${
+              !isOpen && 'p-2.5 rounded-xl'
+            }`}
+            title="Ban hành & Theo dõi ý kiến chỉ đạo của Ban Giám hiệu"
+          >
+            <MessageSquareQuote className="w-4 h-4 text-slate-950 shrink-0" />
+            {isOpen && <span className="tracking-wide uppercase text-[11px]">Chỉ đạo Ban Giám hiệu</span>}
           </button>
         ) : (
           <button
@@ -278,11 +291,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        {/* SECTION 2: Base Wework "CÔNG VIỆC CỦA TÔI" (My Tasks Perspectives) */}
+        {/* SECTION 2: Role-Tailored Perspectives */}
         <div className="space-y-0.5 pt-2 border-t border-slate-800">
           {isOpen && (
-            <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center justify-between">
-              <span>Công việc của tôi</span>
+            <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+              <span>
+                {isLeader ? 'Điều hành Ban Giám hiệu' : isUnit ? 'Công việc của đơn vị' : 'Giám sát & Tiến độ'}
+              </span>
               {selectedPerspective !== 'all' && (
                 <button
                   onClick={() => onSelectPerspective('all')}
@@ -294,133 +309,310 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </p>
           )}
 
-          {/* All Tasks */}
-          <button
-            onClick={() => { onSelectPerspective('all'); closeOnMobile(); }}
-            className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
-              selectedPerspective === 'all'
-                ? 'bg-slate-800 text-white font-semibold'
-                : 'text-slate-300 hover:bg-slate-850 hover:text-white'
-            }`}
-            title="Tất cả nhiệm vụ"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <Inbox className="w-4 h-4 shrink-0 text-slate-400" />
-              {isOpen && <span className="truncate">Tất cả nhiệm vụ</span>}
-            </div>
-            {isOpen && (
-              <span className={`text-[11px] font-semibold font-mono ${selectedPerspective === 'all' ? 'text-slate-200' : 'text-slate-500'}`}>
-                {totalTasksCount}
-              </span>
-            )}
-          </button>
+          {/* Leader (BGH) Perspectives */}
+          {isLeader ? (
+            <>
+              {/* 1. Chỉ đạo Ban Giám hiệu */}
+              <button
+                onClick={() => { onOpenDirectives(); closeOnMobile(); }}
+                className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer text-amber-300 hover:bg-amber-950/40 hover:text-amber-200 border border-amber-500/20"
+                title="Trung tâm ban hành chỉ đạo Ban Giám hiệu"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <MessageSquareQuote className="w-4 h-4 shrink-0 text-amber-400" />
+                  {isOpen && <span className="truncate font-semibold">Chỉ đạo của BGH</span>}
+                </div>
+                {isOpen && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-amber-900/60 text-amber-200 border border-amber-700/50">
+                    Chỉ đạo
+                  </span>
+                )}
+              </button>
 
-          {/* Assigned to Me / My Unit */}
-          <button
-            onClick={() => { onSelectPerspective('my_assigned'); closeOnMobile(); }}
-            className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
-              selectedPerspective === 'my_assigned'
-                ? 'bg-slate-800 text-white font-semibold'
-                : 'text-slate-300 hover:bg-slate-850 hover:text-white'
-            }`}
-            title={`Nhiệm vụ đơn vị tôi phụ trách (${currentUser.donVi})`}
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <Building className={`w-4 h-4 shrink-0 ${selectedPerspective === 'my_assigned' ? 'text-white' : 'text-slate-400'}`} />
-              {isOpen && <span className="truncate">Tôi / Đơn vị tôi phụ trách</span>}
-            </div>
-            {isOpen && myUnitCount > 0 && (
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                selectedPerspective === 'my_assigned' ? 'bg-slate-700 text-white' : 'bg-slate-850 text-slate-300 border border-slate-700'
-              }`}>
-                {myUnitCount}
-              </span>
-            )}
-          </button>
+              {/* 2. Chờ BGH duyệt nghiệm thu */}
+              <button
+                onClick={() => { onSelectPerspective('pending_approval'); closeOnMobile(); }}
+                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
+                  selectedPerspective === 'pending_approval'
+                    ? 'bg-emerald-950/60 text-emerald-200 font-bold border border-emerald-700'
+                    : 'text-slate-300 hover:bg-slate-850 hover:text-white'
+                }`}
+                title="Nhiệm vụ đang chờ Ban Giám hiệu duyệt nghiệm thu"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-400" />
+                  {isOpen && <span className="truncate">Chờ duyệt nghiệm thu</span>}
+                </div>
+                {isOpen && pendingApprovalCount > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-emerald-900/80 text-emerald-100 border border-emerald-700">
+                    {pendingApprovalCount}
+                  </span>
+                )}
+              </button>
 
-          {/* Delegated / Created by current role */}
-          <button
-            onClick={() => { onSelectPerspective('my_delegated'); closeOnMobile(); }}
-            className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
-              selectedPerspective === 'my_delegated'
-                ? 'bg-slate-800 text-white font-semibold'
-                : 'text-slate-300 hover:bg-slate-850 hover:text-white'
-            }`}
-            title="Nhiệm vụ Lãnh đạo / Ban Giám hiệu giao"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <Send className={`w-4 h-4 shrink-0 ${selectedPerspective === 'my_delegated' ? 'text-white' : 'text-slate-400'}`} />
-              {isOpen && <span className="truncate">Tôi giao việc</span>}
-            </div>
-            {isOpen && (
-              <span className={`text-[11px] font-mono ${selectedPerspective === 'my_delegated' ? 'text-slate-200' : 'text-slate-500'}`}>
-                {myDelegatedCount}
-              </span>
-            )}
-          </button>
+              {/* 3. Điểm nghẽn & Quá hạn */}
+              <button
+                onClick={() => { onSelectPerspective('overdue_urgent'); closeOnMobile(); }}
+                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
+                  selectedPerspective === 'overdue_urgent'
+                    ? 'bg-rose-950/60 text-rose-200 font-bold border border-rose-800'
+                    : 'text-slate-300 hover:bg-slate-850 hover:text-white'
+                }`}
+                title="Điểm nghẽn, chậm trễ cần Ban Giám hiệu đôn đốc xử lý"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                  {isOpen && <span className="truncate">Điểm nghẽn & Quá hạn</span>}
+                </div>
+                {isOpen && overdueCount > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-rose-900/80 text-rose-100">
+                    {overdueCount}
+                  </span>
+                )}
+              </button>
 
-          {/* Pending Deliverables Approval */}
-          <button
-            onClick={() => { onSelectPerspective('pending_approval'); closeOnMobile(); }}
-            className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
-              selectedPerspective === 'pending_approval'
-                ? 'bg-slate-800 text-white font-semibold border border-slate-700'
-                : 'text-slate-300 hover:bg-slate-850 hover:text-white'
-            }`}
-            title="Nhiệm vụ đang chờ duyệt minh chứng nghiệm thu"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-400" />
-              {isOpen && <span className="truncate">Chờ duyệt nghiệm thu</span>}
-            </div>
-            {isOpen && pendingApprovalCount > 0 && (
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-emerald-950 text-emerald-300 border border-emerald-900/40">
-                {pendingApprovalCount}
-              </span>
-            )}
-          </button>
+              {/* 4. Toàn bộ nhiệm vụ NQ57 */}
+              <button
+                onClick={() => { onSelectPerspective('all'); closeOnMobile(); }}
+                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
+                  selectedPerspective === 'all'
+                    ? 'bg-slate-800 text-white font-semibold'
+                    : 'text-slate-300 hover:bg-slate-850 hover:text-white'
+                }`}
+                title="Tiến độ toàn trường (57 nhiệm vụ NQ57)"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Inbox className="w-4 h-4 shrink-0 text-slate-400" />
+                  {isOpen && <span className="truncate">Tiến độ toàn trường</span>}
+                </div>
+                {isOpen && (
+                  <span className={`text-[11px] font-semibold font-mono ${selectedPerspective === 'all' ? 'text-slate-200' : 'text-slate-500'}`}>
+                    {totalTasksCount}
+                  </span>
+                )}
+              </button>
 
-          {/* Overdue & Urgent */}
-          <button
-            onClick={() => { onSelectPerspective('overdue_urgent'); closeOnMobile(); }}
-            className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
-              selectedPerspective === 'overdue_urgent'
-                ? 'bg-rose-950/40 text-rose-300 font-semibold border border-rose-900/50'
-                : 'text-slate-300 hover:bg-slate-850 hover:text-white'
-            }`}
-            title="Nhiệm vụ quá hạn và khẩn cấp"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-              {isOpen && <span className="truncate">Quá hạn & Khẩn cấp</span>}
-            </div>
-            {isOpen && overdueCount > 0 && (
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-rose-900/80 text-rose-100">
-                {overdueCount}
-              </span>
-            )}
-          </button>
+              {/* 5. Gợi ý AI ưu tiên */}
+              <button
+                onClick={() => { onSelectPerspective('ai_suggested'); closeOnMobile(); }}
+                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
+                  selectedPerspective === 'ai_suggested'
+                    ? 'bg-amber-950/40 text-amber-300 font-semibold border border-amber-900/50'
+                    : 'text-slate-300 hover:bg-slate-850 hover:text-white'
+                }`}
+                title="Gợi ý AI ưu tiên cho Lãnh đạo"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Sparkles className="w-4 h-4 shrink-0 text-amber-400" />
+                  {isOpen && <span className="truncate">AI Gợi ý trọng tâm</span>}
+                </div>
+                {isOpen && aiRecommendedCount > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-amber-900/80 text-amber-100">
+                    {aiRecommendedCount}
+                  </span>
+                )}
+              </button>
+            </>
+          ) : isUnit ? (
+            /* Đơn vị thực thi */
+            <>
+              {/* 1. Nhiệm vụ đơn vị tôi */}
+              <button
+                onClick={() => { onSelectPerspective('my_assigned'); closeOnMobile(); }}
+                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
+                  selectedPerspective === 'my_assigned'
+                    ? 'bg-[#0066FF] text-white font-bold shadow-md shadow-blue-900/40'
+                    : 'text-slate-300 hover:bg-slate-850 hover:text-white'
+                }`}
+                title={`Nhiệm vụ đơn vị tôi phụ trách (${currentUser.donVi})`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Building className={`w-4 h-4 shrink-0 ${selectedPerspective === 'my_assigned' ? 'text-white' : 'text-slate-400'}`} />
+                  {isOpen && <span className="truncate">Đơn vị tôi phụ trách</span>}
+                </div>
+                {isOpen && myUnitCount > 0 && (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                    selectedPerspective === 'my_assigned' ? 'bg-white/20 text-white' : 'bg-slate-850 text-slate-300 border border-slate-700'
+                  }`}>
+                    {myUnitCount}
+                  </span>
+                )}
+              </button>
 
-          {/* AI Recommended Focus */}
-          <button
-            onClick={() => { onSelectPerspective('ai_suggested'); closeOnMobile(); }}
-            className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
-              selectedPerspective === 'ai_suggested'
-                ? 'bg-amber-950/40 text-amber-300 font-semibold border border-amber-900/50'
-                : 'text-slate-300 hover:bg-slate-850 hover:text-white'
-            }`}
-            title="Gợi ý AI ưu tiên"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <Sparkles className="w-4 h-4 shrink-0 text-amber-400" />
-              {isOpen && <span className="truncate">AI Gợi ý ưu tiên</span>}
-            </div>
-            {isOpen && aiRecommendedCount > 0 && (
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-amber-900/80 text-amber-100">
-                {aiRecommendedCount}
-              </span>
-            )}
-          </button>
+              {/* 2. Quá hạn & Khẩn cấp */}
+              <button
+                onClick={() => { onSelectPerspective('overdue_urgent'); closeOnMobile(); }}
+                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
+                  selectedPerspective === 'overdue_urgent'
+                    ? 'bg-rose-950/40 text-rose-300 font-semibold border border-rose-900/50'
+                    : 'text-slate-300 hover:bg-slate-850 hover:text-white'
+                }`}
+                title="Nhiệm vụ quá hạn và khẩn cấp của đơn vị"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                  {isOpen && <span className="truncate">Quá hạn & Khẩn cấp</span>}
+                </div>
+                {isOpen && overdueCount > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-rose-900/80 text-rose-100">
+                    {overdueCount}
+                  </span>
+                )}
+              </button>
+
+              {/* 3. Tất cả nhiệm vụ */}
+              <button
+                onClick={() => { onSelectPerspective('all'); closeOnMobile(); }}
+                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
+                  selectedPerspective === 'all'
+                    ? 'bg-slate-800 text-white font-semibold'
+                    : 'text-slate-300 hover:bg-slate-850 hover:text-white'
+                }`}
+                title="Tất cả nhiệm vụ NQ57"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Inbox className="w-4 h-4 shrink-0 text-slate-400" />
+                  {isOpen && <span className="truncate">Tất cả nhiệm vụ</span>}
+                </div>
+                {isOpen && (
+                  <span className={`text-[11px] font-semibold font-mono ${selectedPerspective === 'all' ? 'text-slate-200' : 'text-slate-500'}`}>
+                    {totalTasksCount}
+                  </span>
+                )}
+              </button>
+
+              {/* 4. AI Gợi ý ưu tiên */}
+              <button
+                onClick={() => { onSelectPerspective('ai_suggested'); closeOnMobile(); }}
+                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
+                  selectedPerspective === 'ai_suggested'
+                    ? 'bg-amber-950/40 text-amber-300 font-semibold border border-amber-900/50'
+                    : 'text-slate-300 hover:bg-slate-850 hover:text-white'
+                }`}
+                title="Gợi ý AI ưu tiên"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Sparkles className="w-4 h-4 shrink-0 text-amber-400" />
+                  {isOpen && <span className="truncate">AI Gợi ý ưu tiên</span>}
+                </div>
+                {isOpen && aiRecommendedCount > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-amber-900/80 text-amber-100">
+                    {aiRecommendedCount}
+                  </span>
+                )}
+              </button>
+            </>
+          ) : (
+            /* Admin & Tổ Chuyên trách */
+            <>
+              {/* 1. Tất cả nhiệm vụ */}
+              <button
+                onClick={() => { onSelectPerspective('all'); closeOnMobile(); }}
+                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
+                  selectedPerspective === 'all'
+                    ? 'bg-slate-800 text-white font-semibold'
+                    : 'text-slate-300 hover:bg-slate-850 hover:text-white'
+                }`}
+                title="Tất cả nhiệm vụ"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Inbox className="w-4 h-4 shrink-0 text-slate-400" />
+                  {isOpen && <span className="truncate">Tất cả nhiệm vụ</span>}
+                </div>
+                {isOpen && (
+                  <span className={`text-[11px] font-semibold font-mono ${selectedPerspective === 'all' ? 'text-slate-200' : 'text-slate-500'}`}>
+                    {totalTasksCount}
+                  </span>
+                )}
+              </button>
+
+              {/* 2. Chờ duyệt nghiệm thu */}
+              <button
+                onClick={() => { onSelectPerspective('pending_approval'); closeOnMobile(); }}
+                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
+                  selectedPerspective === 'pending_approval'
+                    ? 'bg-slate-800 text-white font-semibold border border-slate-700'
+                    : 'text-slate-300 hover:bg-slate-850 hover:text-white'
+                }`}
+                title="Nhiệm vụ đang chờ duyệt minh chứng nghiệm thu"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-400" />
+                  {isOpen && <span className="truncate">Chờ duyệt nghiệm thu</span>}
+                </div>
+                {isOpen && pendingApprovalCount > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-emerald-950 text-emerald-300 border border-emerald-900/40">
+                    {pendingApprovalCount}
+                  </span>
+                )}
+              </button>
+
+              {/* 3. Quá hạn & Khẩn cấp */}
+              <button
+                onClick={() => { onSelectPerspective('overdue_urgent'); closeOnMobile(); }}
+                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
+                  selectedPerspective === 'overdue_urgent'
+                    ? 'bg-rose-950/40 text-rose-300 font-semibold border border-rose-900/50'
+                    : 'text-slate-300 hover:bg-slate-850 hover:text-white'
+                }`}
+                title="Nhiệm vụ quá hạn và khẩn cấp"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                  {isOpen && <span className="truncate">Quá hạn & Khẩn cấp</span>}
+                </div>
+                {isOpen && overdueCount > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-rose-900/80 text-rose-100">
+                    {overdueCount}
+                  </span>
+                )}
+              </button>
+
+              {/* 4. Tôi giao việc */}
+              {myDelegatedCount > 0 && (
+                <button
+                  onClick={() => { onSelectPerspective('my_delegated'); closeOnMobile(); }}
+                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
+                    selectedPerspective === 'my_delegated'
+                      ? 'bg-slate-800 text-white font-semibold'
+                      : 'text-slate-300 hover:bg-slate-850 hover:text-white'
+                  }`}
+                  title="Nhiệm vụ đã giao"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Send className={`w-4 h-4 shrink-0 ${selectedPerspective === 'my_delegated' ? 'text-white' : 'text-slate-400'}`} />
+                    {isOpen && <span className="truncate">Tôi giao việc</span>}
+                  </div>
+                  {isOpen && (
+                    <span className={`text-[11px] font-mono ${selectedPerspective === 'my_delegated' ? 'text-slate-200' : 'text-slate-500'}`}>
+                      {myDelegatedCount}
+                    </span>
+                  )}
+                </button>
+              )}
+
+              {/* 5. Gợi ý AI ưu tiên */}
+              <button
+                onClick={() => { onSelectPerspective('ai_suggested'); closeOnMobile(); }}
+                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
+                  selectedPerspective === 'ai_suggested'
+                    ? 'bg-amber-950/40 text-amber-300 font-semibold border border-amber-900/50'
+                    : 'text-slate-300 hover:bg-slate-850 hover:text-white'
+                }`}
+                title="Gợi ý AI ưu tiên"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Sparkles className="w-4 h-4 shrink-0 text-amber-400" />
+                  {isOpen && <span className="truncate">AI Gợi ý ưu tiên</span>}
+                </div>
+                {isOpen && aiRecommendedCount > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-amber-900/80 text-amber-100">
+                    {aiRecommendedCount}
+                  </span>
+                )}
+              </button>
+            </>
+          )}
         </div>
 
         {/* SECTION 3: Base Wework Projects / Plan Groups NQ57 */}
@@ -572,27 +764,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         )}
 
-        <button
-          onClick={() => { onOpenDriveManager(); closeOnMobile(); }}
-          className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors text-xs cursor-pointer font-medium"
-          title="Kho lưu trữ minh chứng Google Drive"
-        >
-          <FolderLock className="w-4 h-4 shrink-0 text-slate-400" />
-          {isOpen && <span className="truncate">Kho minh chứng Drive</span>}
-        </button>
+        {/* Kho minh chứng Drive: Chỉ dành cho Admin & Tổ Chuyên trách quản lý file */}
+        {perms.canManageDrive && (
+          <button
+            onClick={() => { onOpenDriveManager(); closeOnMobile(); }}
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors text-xs cursor-pointer font-medium"
+            title="Kho lưu trữ minh chứng Google Drive"
+          >
+            <FolderLock className="w-4 h-4 shrink-0 text-slate-400" />
+            {isOpen && <span className="truncate">Kho minh chứng Drive</span>}
+          </button>
+        )}
 
-        <button
-          onClick={() => { onOpenDirectives(); closeOnMobile(); }}
-          className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-amber-300 hover:text-amber-200 hover:bg-white/10 transition-colors text-xs cursor-pointer font-medium"
-          title={perms.canDirectLead ? "Trung tâm ban hành chỉ đạo Ban Giám hiệu" : "Xem ý kiến chỉ đạo của Ban Giám hiệu"}
-        >
-          <MessageSquareQuote className="w-4 h-4 shrink-0 text-amber-400" />
-          {isOpen && (
-            <span className="truncate">
-              {perms.canDirectLead ? 'Chỉ đạo Ban Giám hiệu' : 'Ý kiến chỉ đạo BGH'}
-            </span>
-          )}
-        </button>
+        {/* Chỉ đạo BGH: Ở đáy chỉ hiển thị cho các vai trò KHÁC (Đơn vị, Tổ chuyên trách) để xem chỉ đạo của BGH */}
+        {!isLeader && (
+          <button
+            onClick={() => { onOpenDirectives(); closeOnMobile(); }}
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-amber-300 hover:text-amber-200 hover:bg-white/10 transition-colors text-xs cursor-pointer font-medium"
+            title="Xem ý kiến chỉ đạo của Ban Giám hiệu"
+          >
+            <MessageSquareQuote className="w-4 h-4 shrink-0 text-amber-400" />
+            {isOpen && <span className="truncate">Ý kiến chỉ đạo BGH</span>}
+          </button>
+        )}
 
         {perms.canViewAuditLogs && (
           <button
