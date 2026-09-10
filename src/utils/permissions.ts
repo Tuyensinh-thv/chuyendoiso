@@ -43,12 +43,12 @@ export function getRolePermissions(role: UserRole): RolePermissions {
         canManageUsers: false,
         canSyncGoogleSheets: false,
         canConfigureAi: false,
-        canCreateTask: false,
+        canCreateTask: true,         // Ban Giám hiệu có quyền giao thêm nhiệm vụ
         canDeleteTask: false,
-        canEditTaskContent: false,
+        canEditTaskContent: true,    // Ban Giám hiệu có quyền điều chỉnh tên, hạn, người phụ trách, đơn vị
         canDirectLead: true,         // Được phép cho ý kiến chỉ đạo
         canApproveTask: true,        // Phê duyệt nghiệm thu
-        canUpdateProgress: false,
+        canUpdateProgress: true,     // Ban Giám hiệu có quyền điều chỉnh tiến độ
         canViewAllUnits: true,       // Xem toàn bộ dữ liệu & biểu đồ
         canViewAuditLogs: false,
         canExportReports: false,     // Lãnh đạo điều hành qua Dashboard/KPI, không xuất file thô

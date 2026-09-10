@@ -101,7 +101,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const canDelete = perms.canDeleteTask;
   const isMyUnitTask = isTaskRelatedToUnit(formState, currentUser.donVi);
   const canEditProgress = perms.canUpdateProgress && (currentUser.vaiTro !== 'Don_Vi' || isMyUnitTask);
-  const canEditChecklist = currentUser.vaiTro !== 'Lanh_Dao' && (currentUser.vaiTro !== 'Don_Vi' || isMyUnitTask);
+  const canEditChecklist = canEditCoreContent || (currentUser.vaiTro === 'Don_Vi' && isMyUnitTask);
 
   // Multi-unit parsing
   const chuTriList = (formState.donViChuTri || '').split(/[,;]/).map((s) => s.trim()).filter(Boolean);

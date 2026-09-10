@@ -28,6 +28,9 @@ import {
   fetchAccountsFromSupabase, 
   fetchAuditLogsFromSupabase, 
   fetchCategoriesFromSupabase, 
+  saveTaskToSupabase,
+  saveAllTasksToSupabase,
+  addAuditLogToSupabase,
   deleteTaskFromSupabase, 
   subscribeToTasks, 
   subscribeToAuditLogs 
@@ -100,6 +103,9 @@ export default function App() {
   const recordAuditLog = (entry: Omit<AuditLogEntry, 'id' | 'timestamp'>) => {
     const created = addAuditLog(entry);
     setAuditLogs((prev) => [created, ...prev]);
+    addAuditLogToSupabase(created).catch((err) =>
+      console.warn('Failed to push audit log to Supabase:', err)
+    );
     const config = loadSyncConfig();
     if (config.gasWebAppUrl) {
       pushAuditLogToGas(config.gasWebAppUrl, created).catch((err) =>
@@ -504,19 +510,38 @@ export default function App() {
 
   // Handlers
   const handleSaveTask = (updatedTask: TaskNQ57) => {
-    const computed = {
+    const computed: TaskNQ57 = {
       ...updatedTask,
       trangThai: computeTaskStatus(updatedTask),
+      ngayCapNhat: new Date().toISOString(),
     };
-    setTasks((prev) => prev.map((t) => (t.id === computed.id ? computed : t)));
+
+    // 1. Update React state & localStorage
+    setTasks((prev) => {
+      const next = prev.map((t) => (t.id === computed.id ? computed : t));
+      saveTasksToStorage(next);
+      return next;
+    });
+
+    // 2. Direct immediate Supabase persistence
+    saveTaskToSupabase(computed).catch((err) => {
+      console.warn('Direct Supabase save task error:', err);
+    });
+
+    // 3. Record audit log
+    recordAuditLog({
+      actor: currentUser.hoTen,
+      actorRole: currentUser.vaiTro === 'Lanh_Dao' ? 'Ban Giám hiệu' : currentUser.vaiTro === 'Admin' ? 'Quản trị viên' : currentUser.vaiTro === 'To_Chuyen_Trach' ? 'Tổ CĐS' : currentUser.donVi,
+      action: 'UPDATE',
+      taskId: computed.id,
+      taskTitle: computed.tenNhiemVu,
+      details: `Cập nhật thông tin chi tiết nhiệm vụ [${computed.id}]`,
+    });
+
     setSelectedTask(null);
   };
 
   const handleUpdateTaskStatus = (taskId: string, newStatus: TaskStatus) => {
-    if (currentUser.vaiTro === 'Lanh_Dao') {
-      alert('Lãnh đạo trường thực hiện chức năng chỉ đạo và phê duyệt nghiệm thu, không trực tiếp thay đổi trạng thái tác nghiệp.');
-      return;
-    }
     if (currentUser.vaiTro === 'Don_Vi') {
       const target = tasks.find((item) => item.id === taskId);
       if (target && !isTaskRelatedToUnit(target, currentUser.donVi)) {
@@ -525,37 +550,35 @@ export default function App() {
       }
     }
 
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id === taskId) {
-          const isComplete = newStatus === 'Đã hoàn thành';
-          const updated: TaskNQ57 = {
-            ...t,
-            trangThai: newStatus,
-            tiendo: isComplete ? 100 : t.tiendo,
-            approvalStatus: isComplete && t.approvalStatus !== 'Da_Duyet' ? 'Cho_Duyet' : t.approvalStatus,
-            ngayCapNhat: new Date().toISOString(),
-          };
-          recordAuditLog({
-            actor: currentUser.hoTen,
-            actorRole: currentUser.vaiTro === 'Lanh_Dao' ? 'Lãnh đạo trường' : currentUser.vaiTro === 'Admin' ? 'Quản trị viên' : currentUser.vaiTro === 'To_Chuyen_Trach' ? 'Tổ CĐS' : currentUser.donVi,
-            action: 'UPDATE',
-            taskId: t.id,
-            taskTitle: t.tenNhiemVu,
-            details: `Chuyển trạng thái sang "${newStatus}"`,
-          });
-          return updated;
-        }
-        return t;
-      })
-    );
+    setTasks((prev) => {
+      const target = prev.find((t) => t.id === taskId);
+      if (!target) return prev;
+      const isComplete = newStatus === 'Đã hoàn thành';
+      const updated: TaskNQ57 = {
+        ...target,
+        trangThai: newStatus,
+        tiendo: isComplete ? 100 : target.tiendo,
+        approvalStatus: isComplete && target.approvalStatus !== 'Da_Duyet' ? 'Cho_Duyet' : target.approvalStatus,
+        ngayCapNhat: new Date().toISOString(),
+      };
+      saveTaskToSupabase(updated).catch((err) => {
+        console.warn('Supabase status update error:', err);
+      });
+      recordAuditLog({
+        actor: currentUser.hoTen,
+        actorRole: currentUser.vaiTro === 'Lanh_Dao' ? 'Ban Giám hiệu' : currentUser.vaiTro === 'Admin' ? 'Quản trị viên' : currentUser.vaiTro === 'To_Chuyen_Trach' ? 'Tổ CĐS' : currentUser.donVi,
+        action: 'UPDATE',
+        taskId: target.id,
+        taskTitle: target.tenNhiemVu,
+        details: `Chuyển trạng thái sang "${newStatus}"`,
+      });
+      const next = prev.map((t) => (t.id === taskId ? updated : t));
+      saveTasksToStorage(next);
+      return next;
+    });
   };
 
   const handleUpdateTaskProgress = (taskId: string, newProgress: number) => {
-    if (currentUser.vaiTro === 'Lanh_Dao') {
-      alert('Lãnh đạo trường thực hiện chức năng chỉ đạo và phê duyệt nghiệm thu, không trực tiếp thay đổi tiến độ tác nghiệp.');
-      return;
-    }
     if (currentUser.vaiTro === 'Don_Vi') {
       const target = tasks.find((item) => item.id === taskId);
       if (target && !isTaskRelatedToUnit(target, currentUser.donVi)) {
@@ -564,30 +587,32 @@ export default function App() {
       }
     }
 
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id === taskId) {
-          const isComplete = newProgress === 100;
-          const updated: TaskNQ57 = {
-            ...t,
-            tiendo: newProgress,
-            approvalStatus: isComplete && t.approvalStatus !== 'Da_Duyet' ? 'Cho_Duyet' : t.approvalStatus,
-            ngayCapNhat: new Date().toISOString(),
-          };
-          updated.trangThai = computeTaskStatus(updated);
-          recordAuditLog({
-            actor: currentUser.hoTen,
-            actorRole: currentUser.vaiTro === 'Lanh_Dao' ? 'Lãnh đạo trường' : currentUser.vaiTro === 'Admin' ? 'Quản trị viên' : currentUser.vaiTro === 'To_Chuyen_Trach' ? 'Tổ CĐS' : currentUser.donVi,
-            action: 'UPDATE',
-            taskId: t.id,
-            taskTitle: t.tenNhiemVu,
-            details: `Cập nhật tiến độ thành ${newProgress}%`,
-          });
-          return updated;
-        }
-        return t;
-      })
-    );
+    setTasks((prev) => {
+      const target = prev.find((t) => t.id === taskId);
+      if (!target) return prev;
+      const isComplete = newProgress === 100;
+      const updated: TaskNQ57 = {
+        ...target,
+        tiendo: newProgress,
+        approvalStatus: isComplete && target.approvalStatus !== 'Da_Duyet' ? 'Cho_Duyet' : target.approvalStatus,
+        ngayCapNhat: new Date().toISOString(),
+      };
+      updated.trangThai = computeTaskStatus(updated);
+      saveTaskToSupabase(updated).catch((err) => {
+        console.warn('Supabase progress update error:', err);
+      });
+      recordAuditLog({
+        actor: currentUser.hoTen,
+        actorRole: currentUser.vaiTro === 'Lanh_Dao' ? 'Ban Giám hiệu' : currentUser.vaiTro === 'Admin' ? 'Quản trị viên' : currentUser.vaiTro === 'To_Chuyen_Trach' ? 'Tổ CĐS' : currentUser.donVi,
+        action: 'UPDATE',
+        taskId: target.id,
+        taskTitle: target.tenNhiemVu,
+        details: `Cập nhật tiến độ thành ${newProgress}%`,
+      });
+      const next = prev.map((t) => (t.id === taskId ? updated : t));
+      saveTasksToStorage(next);
+      return next;
+    });
   };
 
   const handleDeleteTask = (taskId: string) => {
@@ -596,7 +621,11 @@ export default function App() {
       return;
     }
     const taskToDelete = tasks.find((t) => t.id === taskId);
-    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    setTasks((prev) => {
+      const next = prev.filter((t) => t.id !== taskId);
+      saveTasksToStorage(next);
+      return next;
+    });
     deleteTaskFromSupabase(taskId).catch((err) => {
       console.warn('Supabase background delete task:', err);
     });
@@ -605,7 +634,7 @@ export default function App() {
     }
     recordAuditLog({
       actor: currentUser.hoTen,
-      actorRole: currentUser.vaiTro === 'Admin' ? 'Quản trị viên' : currentUser.vaiTro === 'To_Chuyen_Trach' ? 'Tổ CĐS' : 'Lãnh đạo trường',
+      actorRole: currentUser.vaiTro === 'Admin' ? 'Quản trị viên' : currentUser.vaiTro === 'To_Chuyen_Trach' ? 'Tổ CĐS' : 'Ban Giám hiệu',
       action: 'DELETE',
       taskId: taskId,
       taskTitle: taskToDelete?.tenNhiemVu,
@@ -618,30 +647,32 @@ export default function App() {
       alert('Chỉ Ban Giám hiệu (Lãnh đạo trường) hoặc Quản trị viên mới có quyền duyệt nghiệm thu nhiệm vụ!');
       return;
     }
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id === taskId) {
-          const isApproved = status === 'Da_Duyet';
-          const updated: TaskNQ57 = {
-            ...t,
-            approvalStatus: status,
-            tiendo: isApproved ? 100 : t.tiendo,
-            trangThai: isApproved ? 'Đã hoàn thành' : t.trangThai,
-            ngayCapNhat: new Date().toISOString(),
-          };
-          recordAuditLog({
-            actor: currentUser.hoTen,
-            actorRole: currentUser.vaiTro === 'Admin' ? 'Quản trị viên' : 'Lãnh đạo trường',
-            action: isApproved ? 'APPROVE' : 'REJECT',
-            taskId: t.id,
-            taskTitle: t.tenNhiemVu,
-            details: isApproved ? 'Phê duyệt nghiệm thu hoàn tất nhiệm vụ' : 'Yêu cầu đơn vị bổ sung chỉnh sửa minh chứng',
-          });
-          return updated;
-        }
-        return t;
-      })
-    );
+    setTasks((prev) => {
+      const target = prev.find((t) => t.id === taskId);
+      if (!target) return prev;
+      const isApproved = status === 'Da_Duyet';
+      const updated: TaskNQ57 = {
+        ...target,
+        approvalStatus: status,
+        tiendo: isApproved ? 100 : target.tiendo,
+        trangThai: isApproved ? 'Đã hoàn thành' : target.trangThai,
+        ngayCapNhat: new Date().toISOString(),
+      };
+      saveTaskToSupabase(updated).catch((err) => {
+        console.warn('Supabase approve task error:', err);
+      });
+      recordAuditLog({
+        actor: currentUser.hoTen,
+        actorRole: currentUser.vaiTro === 'Admin' ? 'Quản trị viên' : 'Ban Giám hiệu',
+        action: isApproved ? 'APPROVE' : 'REJECT',
+        taskId: target.id,
+        taskTitle: target.tenNhiemVu,
+        details: isApproved ? 'Phê duyệt nghiệm thu hoàn tất nhiệm vụ' : 'Yêu cầu đơn vị bổ sung chỉnh sửa minh chứng',
+      });
+      const next = prev.map((t) => (t.id === taskId ? updated : t));
+      saveTasksToStorage(next);
+      return next;
+    });
   };
 
   const handleAddDirectiveToTask = (taskId: string, directiveText: string) => {
@@ -649,49 +680,58 @@ export default function App() {
       alert('Chỉ Ban Giám hiệu (Lãnh đạo trường) mới có quyền ban hành ý kiến chỉ đạo!');
       return;
     }
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id === taskId) {
-          const newDirectives = [
-            ...(t.directivesHistory || []),
-            {
-              id: `dir_${Date.now()}`,
-              author: currentUser.hoTen,
-              role: currentUser.vaiTro === 'Lanh_Dao' ? 'Ban Giám hiệu' : 'Quản trị viên',
-              content: directiveText,
-              createdAt: new Date().toLocaleDateString('vi-VN'),
-            },
-          ];
-          const updated: TaskNQ57 = {
-            ...t,
-            yKienChiDao: directiveText,
-            directivesHistory: newDirectives,
-            ngayCapNhat: new Date().toISOString(),
-          };
-          recordAuditLog({
-            actor: currentUser.hoTen,
-            actorRole: currentUser.vaiTro === 'Lanh_Dao' ? 'Ban Giám hiệu' : 'Quản trị viên',
-            action: 'UPDATE',
-            taskId: t.id,
-            taskTitle: t.tenNhiemVu,
-            details: `Ban hành chỉ đạo mới: "${directiveText}"`,
-          });
-          return updated;
-        }
-        return t;
-      })
-    );
+    setTasks((prev) => {
+      const target = prev.find((t) => t.id === taskId);
+      if (!target) return prev;
+      const newDirectives = [
+        ...(target.directivesHistory || []),
+        {
+          id: `dir_${Date.now()}`,
+          author: currentUser.hoTen,
+          role: currentUser.vaiTro === 'Lanh_Dao' ? 'Ban Giám hiệu' : 'Quản trị viên',
+          content: directiveText,
+          createdAt: new Date().toLocaleDateString('vi-VN'),
+        },
+      ];
+      const updated: TaskNQ57 = {
+        ...target,
+        yKienChiDao: directiveText,
+        directivesHistory: newDirectives,
+        ngayCapNhat: new Date().toISOString(),
+      };
+      saveTaskToSupabase(updated).catch((err) => {
+        console.warn('Supabase directive error:', err);
+      });
+      recordAuditLog({
+        actor: currentUser.hoTen,
+        actorRole: currentUser.vaiTro === 'Lanh_Dao' ? 'Ban Giám hiệu' : 'Quản trị viên',
+        action: 'UPDATE',
+        taskId: target.id,
+        taskTitle: target.tenNhiemVu,
+        details: `Ban hành chỉ đạo mới: "${directiveText}"`,
+      });
+      const next = prev.map((t) => (t.id === taskId ? updated : t));
+      saveTasksToStorage(next);
+      return next;
+    });
   };
 
   const handleAddTask = (newTask: TaskNQ57) => {
     if (!perms.canCreateTask) {
-      alert('Chỉ Quản trị viên hoặc Tổ chuyên trách mới có quyền thêm nhiệm vụ mới!');
+      alert('Chỉ Quản trị viên hoặc Ban Giám hiệu mới có quyền thêm nhiệm vụ mới!');
       return;
     }
-    setTasks((prev) => [newTask, ...prev]);
+    setTasks((prev) => {
+      const next = [newTask, ...prev];
+      saveTasksToStorage(next);
+      return next;
+    });
+    saveTaskToSupabase(newTask).catch((err) => {
+      console.warn('Supabase add task error:', err);
+    });
     recordAuditLog({
       actor: currentUser.hoTen,
-      actorRole: currentUser.vaiTro === 'Admin' ? 'Quản trị viên' : 'Tổ CĐS',
+      actorRole: currentUser.vaiTro === 'Admin' ? 'Quản trị viên' : currentUser.vaiTro === 'Lanh_Dao' ? 'Ban Giám hiệu' : 'Tổ CĐS',
       action: 'CREATE',
       taskId: newTask.id,
       taskTitle: newTask.tenNhiemVu,
@@ -707,6 +747,9 @@ export default function App() {
       }));
       setTasks(fresh);
       saveTasksToStorage(fresh);
+      saveAllTasksToSupabase(fresh).catch((err) => {
+        console.warn('Supabase reset tasks error:', err);
+      });
     }
   };
 
