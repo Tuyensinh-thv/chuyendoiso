@@ -52,6 +52,7 @@ import { EthicalAiSettingsModal } from './components/EthicalAiSettingsModal';
 import { EthicalAiFocusBar } from './components/EthicalAiFocusBar';
 import { GoogleSyncModal } from './components/GoogleSyncModal';
 import { UserManagementModal } from './components/UserManagementModal';
+import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { LoginPage } from './components/LoginPage';
 import { QuickStatusBar } from './components/QuickStatusBar';
 import { AuditLogPanel } from './components/AuditLogPanel';
@@ -154,6 +155,7 @@ export default function App() {
   const [isEthicalAiSettingsOpen, setIsEthicalAiSettingsOpen] = useState(false);
   const [isGoogleSyncOpen, setIsGoogleSyncOpen] = useState(false);
   const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isAuditLogsOpen, setIsAuditLogsOpen] = useState(false);
   const [isDirectivesOpen, setIsDirectivesOpen] = useState(false);
   const [newTaskInitialDate, setNewTaskInitialDate] = useState<string | undefined>(undefined);
@@ -725,6 +727,7 @@ export default function App() {
         onOpenEthicalAiSettings={() => setIsEthicalAiSettingsOpen(true)}
         onOpenGoogleSync={() => setIsGoogleSyncOpen(true)}
         onOpenUserManagement={() => setIsUserManagementOpen(true)}
+        onOpenChangePassword={() => setIsChangePasswordOpen(true)}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         isSidebarOpen={isSidebarOpen}
@@ -1090,6 +1093,25 @@ export default function App() {
           accounts={accounts}
           onUpdateAccounts={handleUpdateAccounts}
           currentUser={currentUser}
+        />
+      )}
+
+      {/* 7c. Change Password Modal */}
+      {isChangePasswordOpen && (
+        <ChangePasswordModal
+          isOpen={isChangePasswordOpen}
+          onClose={() => setIsChangePasswordOpen(false)}
+          currentUser={currentUser}
+          accounts={accounts}
+          onUpdateAccounts={handleUpdateAccounts}
+          onRecordAuditLog={(action, details) => {
+            recordAuditLog({
+              actor: currentUser.hoTen,
+              actorRole: currentUser.vaiTro,
+              action: action,
+              details: details,
+            });
+          }}
         />
       )}
 

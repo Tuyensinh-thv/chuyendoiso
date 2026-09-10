@@ -13,7 +13,8 @@ import {
   Menu,
   ArrowLeft,
   Building,
-  ShieldCheck
+  ShieldCheck,
+  KeyRound
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -21,6 +22,7 @@ interface HeaderProps {
   accounts?: UserAccount[];
   onSwitchUser: (account: UserAccount) => void;
   onLogout?: () => void;
+  onOpenChangePassword?: () => void;
   urgentCount: number;
   onOpenDailyReminder: () => void;
   onOpenDriveManager: () => void;
@@ -38,6 +40,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   currentUser,
   onLogout,
+  onOpenChangePassword,
   urgentCount,
   onOpenDailyReminder,
   onOpenEthicalAiSettings,
@@ -259,6 +262,19 @@ export const Header: React.FC<HeaderProps> = ({
                   >
                     <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
                     <span>Cài đặt AI & Đạo đức</span>
+                  </button>
+                )}
+
+                {onOpenChangePassword && (
+                  <button
+                    onClick={() => {
+                      setShowAccountDropdown(false);
+                      onOpenChangePassword();
+                    }}
+                    className="w-full text-left px-2.5 py-2 text-xs text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors flex items-center gap-2 cursor-pointer font-medium"
+                  >
+                    <KeyRound className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Đổi mật khẩu</span>
                   </button>
                 )}
 
