@@ -11,16 +11,43 @@ interface LoginPageProps {
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, accounts }) => {
-  const [username, setUsername] = useState('kiennt@hvu.edu.vn');
-  const [password, setPassword] = useState('••••••••••••');
-  const [rememberMe, setRememberMe] = useState(false);
+  const [username, setUsername] = useState(() => {
+    return localStorage.getItem('hvu_remember_username') || '';
+  });
+  const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(() => {
+    return localStorage.getItem('hvu_remember_login') === 'true';
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  
+  // Rate-limiting / brute-force protection
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
+
+  React.useEffect(() => {
+    if (lockoutSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setLockoutSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lockoutSeconds]);
 
   const availableAccounts = accounts && accounts.length > 0 ? accounts : INITIAL_ACCOUNTS;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (lockoutSeconds > 0) {
+      setErrorMessage(`Hệ thống đang tạm khóa do nhập sai nhiều lần. Vui lòng thử lại sau ${lockoutSeconds} giây.`);
+      return;
+    }
+
     setErrorMessage(null);
     setIsLoading(true);
 
@@ -36,7 +63,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, accounts }) => {
       }
 
       if (!matched) {
-        setErrorMessage('Tài khoản không tồn tại trên hệ thống. Vui lòng kiểm tra lại email.');
+        const nextAttempts = failedAttempts + 1;
+        setFailedAttempts(nextAttempts);
+        if (nextAttempts >= 5) {
+          setLockoutSeconds(60);
+          setFailedAttempts(0);
+          setErrorMessage('Bạn đã nhập sai 5 lần. Biểu mẫu tạm thời bị khóa trong 60 giây.');
+        } else {
+          setErrorMessage(`Tài khoản không tồn tại trên hệ thống (${5 - nextAttempts} lần thử còn lại).`);
+        }
         setIsLoading(false);
         return;
       }
@@ -50,7 +85,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, accounts }) => {
       const trimmedPw = password.trim();
       let isValidPassword = false;
 
-      if (trimmedPw === '••••••••••••' || trimmedPw === 'hvu2026') {
+      // Hỗ trợ mật khẩu mặc định hvu2026 hoặc mật khẩu đã băm
+      if (trimmedPw === 'hvu2026') {
         isValidPassword = true;
       } else {
         const targetHash = matched.passwordHash || DEFAULT_PASSWORD_HASH;
@@ -58,9 +94,29 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, accounts }) => {
       }
 
       if (!isValidPassword) {
-        setErrorMessage('Mật khẩu không chính xác! (Mật khẩu mặc định hệ thống: hvu2026)');
+        const nextAttempts = failedAttempts + 1;
+        setFailedAttempts(nextAttempts);
+        if (nextAttempts >= 5) {
+          setLockoutSeconds(60);
+          setFailedAttempts(0);
+          setErrorMessage('Bạn đã nhập sai mật khẩu 5 lần. Biểu mẫu tạm khóa 60 giây để đảm bảo an toàn.');
+        } else {
+          setErrorMessage(`Mật khẩu không chính xác! Vui lòng kiểm tra lại (${5 - nextAttempts} lần thử còn lại).`);
+        }
         setIsLoading(false);
         return;
+      }
+
+      // Reset failed attempts on success
+      setFailedAttempts(0);
+
+      // Lưu/xóa thông tin ghi nhớ đăng nhập
+      if (rememberMe) {
+        localStorage.setItem('hvu_remember_login', 'true');
+        localStorage.setItem('hvu_remember_username', username.trim());
+      } else {
+        localStorage.removeItem('hvu_remember_login');
+        localStorage.removeItem('hvu_remember_username');
       }
 
       onLogin(matched);
@@ -173,11 +229,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, accounts }) => {
             <div className="pt-2">
               <button
                 type="submit"
-                disabled={isLoading}
-                className="w-full py-3.5 px-5 rounded-xl bg-[#BE1E2D] hover:bg-[#A31824] active:scale-[0.99] text-white font-bold text-sm tracking-wide uppercase transition-all shadow-md shadow-red-900/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
+                disabled={isLoading || lockoutSeconds > 0}
+                className="w-full py-3.5 px-5 rounded-xl bg-[#BE1E2D] hover:bg-[#A31824] active:scale-[0.99] text-white font-bold text-sm tracking-wide uppercase transition-all shadow-md shadow-red-900/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : lockoutSeconds > 0 ? (
+                  <span>TẠM KHÓA ({lockoutSeconds}s)</span>
                 ) : (
                   <>
                     <span>ĐĂNG NHẬP HỆ THỐNG</span>
@@ -187,19 +245,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, accounts }) => {
               </button>
             </div>
 
-            {/* Back link */}
+            {/* Link trang chủ trường */}
             <div className="pt-4 text-center">
-              <button
-                type="button"
-                onClick={() => {
-                  const defaultAcc = availableAccounts[0];
-                  onLogin(defaultAcc);
-                }}
+              <a
+                href="https://hvu.edu.vn"
+                target="_blank"
+                rel="noreferrer"
                 className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 font-medium transition cursor-pointer"
               >
                 <ChevronLeft className="w-3.5 h-3.5" />
-                <span>Quay lại trang chủ</span>
-              </button>
+                <span>Cổng thông tin Đại học Hùng Vương</span>
+              </a>
             </div>
 
           </form>

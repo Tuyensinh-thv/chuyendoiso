@@ -1,0 +1,74 @@
+# ==============================================================================
+# HVU CHUYỂN ĐỔI SỐ - CẤU HÌNH BẢO MẬT & ĐIỀU HƯỚNG (.htaccess)
+# Trường Đại học Hùng Vương - NQ57
+# ==============================================================================
+
+# 1. BẢO MẬT: CHẶN DUYỆT THƯ MỤC & FILE CẤU HÌNH NHẠY CẢM
+Options -Indexes -MultiViews
+
+# Chặn truy cập tất cả các file ẩn bắt đầu bằng dấu chấm (.git, .env...)
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Chặn xem file mã nguồn, file log hoặc file cấu hình nhạy cảm
+<FilesMatch "\.(bak|config|sql|fla|psd|ini|log|sh|inc|swp|dist|env)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# 2. HTTP SECURITY HEADERS (TIÊU CHUẨN AN TOÀN CAO NHẤT)
+<IfModule mod_headers.c>
+    # Chống Clickjacking: Ngăn kẻ xấu nhúng web trường vào iframe lừa đảo
+    Header always set X-Frame-Options "SAMEORIGIN"
+
+    # Chống MIME-sniffing: Ngăn trình duyệt tự ý đoán sai kiểu file độc hại
+    Header always set X-Content-Type-Options "nosniff"
+
+    # Chống tấn công XSS
+    Header always set X-XSS-Protection "1; mode=block"
+
+    # HSTS: Ép buộc trình duyệt luôn giao tiếp qua HTTPS mã hóa trong 1 năm
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+    # Bảo vệ thông tin liên kết nguồn (Referrer)
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # Vô hiệu hóa quyền truy cập thiết bị nhạy cảm (Camera, Micro, Vị trí)
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+</IfModule>
+
+# 3. ĐIỀU HƯỚNG SPA (SINGLE PAGE APPLICATION - REACT ROUTING)
+# Đảm bảo người dùng F5 hoặc gõ URL trực tiếp không bị lỗi 404
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Tự động chuyển hướng HTTP sang HTTPS
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # Điều hướng mọi yêu cầu không phải file thật về index.html
+    RewriteRule ^index\.html$ - [L]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule . /index.html [L]
+</IfModule>
+
+# 4. TỐI ƯU TỐC ĐỘ: BẬT NÉN GZIP / DEFLATE CHO CSS, JS, HTML
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json application/xml image/svg+xml
+</IfModule>
+
+# 5. CACHING TRÌNH DUYỆT CHO ASSETS TĨNH (TĂNG TỐC ĐỘ TẢI TRANG)
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/html "access plus 0 seconds"
+    ExpiresByType application/json "access plus 0 seconds"
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+</IfModule>

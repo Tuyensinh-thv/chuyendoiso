@@ -88,15 +88,16 @@ export const QuickStatusBar: React.FC<QuickStatusBarProps> = ({
   return (
     <div className="w-full">
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
-        {items.map((item) => {
+        {items.map((item, index) => {
           const Icon = item.icon;
           const isActive = selectedStatus === item.id || (!selectedStatus && item.id === '');
+          const spanClass = index === 0 ? 'col-span-2 sm:col-span-1' : 'col-span-1';
 
           return (
             <button
               key={item.id}
               onClick={() => onSelectStatus(isActive && item.id !== '' ? '' : item.id)}
-              className={`relative flex items-center justify-between py-2 px-3 sm:px-3.5 rounded-xl border text-left transition-all duration-150 cursor-pointer group shadow-2xs ${
+              className={`relative flex items-center justify-between py-2 px-3 sm:px-3.5 rounded-xl border text-left transition-all duration-150 cursor-pointer group shadow-2xs ${spanClass} ${
                 isActive 
                   ? `${item.activeStyle} shadow-xs font-medium` 
                   : 'bg-white hover:bg-slate-50/80 border-slate-200 text-slate-800 hover:border-slate-300'

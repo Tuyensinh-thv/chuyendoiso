@@ -44,11 +44,11 @@ export const EthicalAiSettingsModal: React.FC<EthicalAiSettingsModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/40 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-zinc-950/40 backdrop-blur-xs animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div 
-        className="bg-white text-zinc-900 w-full max-w-lg rounded-2xl border border-zinc-200 shadow-xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="bg-white text-zinc-900 w-full max-w-lg h-full sm:h-auto sm:max-h-[90vh] rounded-none sm:rounded-2xl border-0 sm:border border-zinc-200 shadow-xl overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

@@ -203,7 +203,108 @@ export const TableView: React.FC<TableViewProps> = ({
 
   return (
     <div className="bg-white rounded-2xl border border-zinc-200/90 shadow-xs overflow-hidden">
-      <div className="overflow-x-auto">
+      {/* Mobile Card List (< md) */}
+      <div className="block md:hidden divide-y divide-zinc-200">
+        {paginatedTasks.length === 0 ? (
+          <div className="p-8 text-center text-zinc-500 text-xs">
+            Không tìm thấy nhiệm vụ nào phù hợp.
+          </div>
+        ) : (
+          paginatedTasks.map((task) => {
+            const pMeta = getPriorityMeta(task.mucDoUuTien);
+            const filesCount = task.filesMinhChung?.length || 0;
+
+            return (
+              <div
+                key={task.id}
+                onClick={() => onSelectTask(task)}
+                className="p-3.5 hover:bg-zinc-50 active:bg-zinc-100 transition-colors cursor-pointer space-y-2.5"
+              >
+                {/* Header: Checkbox + ID + Priority + Status */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={task.tiendo === 100 || task.trangThai === 'Đã hoàn thành'}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        if (onUpdateTaskProgress) {
+                          onUpdateTaskProgress(task.id, checked ? 100 : 0);
+                        } else if (onUpdateTaskStatus) {
+                          onUpdateTaskStatus(task.id, checked ? 'Đã hoàn thành' : 'Đang thực hiện');
+                        }
+                      }}
+                      className="w-4 h-4 text-emerald-600 rounded border-zinc-300 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <span className="font-mono font-bold text-xs text-zinc-700 bg-zinc-100 border border-zinc-200 px-1.5 py-0.5 rounded">
+                      {task.id}
+                    </span>
+                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border ${pMeta.badgeClass}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${pMeta.dotClass}`} />
+                      {pMeta.shortLabel}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    {getStatusPill(task)}
+                    <ChevronRight className="w-4 h-4 text-zinc-400" />
+                  </div>
+                </div>
+
+                {/* Title */}
+                <div>
+                  <h4 className="text-xs font-bold text-zinc-900 leading-snug line-clamp-2">
+                    {task.tenNhiemVu}
+                  </h4>
+                  <div className="flex items-center gap-2 text-[11px] text-zinc-500 mt-1">
+                    <span className="font-medium text-zinc-700">{task.donViChuTri}</span>
+                    {task.nguoiPhuTrach && (
+                      <>
+                        <span>•</span>
+                        <span className="truncate">{task.nguoiPhuTrach}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Progress bar & Deadline */}
+                <div className="flex items-center justify-between gap-2 pt-1 border-t border-zinc-100 text-[11px]">
+                  <div className="flex items-center gap-2 flex-1 max-w-[160px]">
+                    <div className="flex-1 bg-zinc-100 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          task.tiendo === 100 ? 'bg-emerald-500' : task.tiendo >= 50 ? 'bg-blue-500' : 'bg-amber-500'
+                        }`}
+                        style={{ width: `${task.tiendo || 0}%` }}
+                      />
+                    </div>
+                    <span className="font-bold text-[10px] tabular-nums text-zinc-600 shrink-0">
+                      {task.tiendo || 0}%
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {filesCount > 0 && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                        <Paperclip className="w-3 h-3" />
+                        {filesCount}
+                      </span>
+                    )}
+                    <div className="flex items-center gap-1 text-zinc-600 font-medium text-[11px]">
+                      <Clock className="w-3 h-3 text-zinc-400" />
+                      <span>{formatVietnameseDate(task.thoiHan)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Desktop Table (>= md) */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left border-collapse text-xs">
           <thead>
             <tr className="border-b border-zinc-200/90 bg-zinc-50/80 text-zinc-600 uppercase text-[11px] font-semibold tracking-wider select-none">

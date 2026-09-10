@@ -125,11 +125,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onSelectCategory('all');
   };
 
+  const closeOnMobile = () => {
+    if (window.innerWidth < 768 && isOpen && onToggleCollapse) {
+      onToggleCollapse();
+    }
+  };
+
   return (
     <aside 
-      className={`bg-gradient-to-b from-[#0B2545] via-[#0C223E] to-[#0A1128] border-r border-slate-700/60 flex flex-col shrink-0 transition-all duration-200 z-20 ${
-        isOpen ? 'w-64' : 'w-16'
-      } select-none h-[calc(100vh-4rem)] sticky top-16 text-slate-300`}
+      className={`bg-gradient-to-b from-[#0B2545] via-[#0C223E] to-[#0A1128] border-r border-slate-700/60 flex-col shrink-0 transition-all duration-200 select-none h-[calc(100vh-4rem)] text-slate-300 ${
+        isOpen
+          ? 'fixed md:sticky top-16 left-0 bottom-0 z-40 w-64 flex shadow-2xl md:shadow-none'
+          : 'hidden md:flex md:w-16 md:sticky top-16 z-20'
+      }`}
       aria-label="Thanh điều hướng Hệ thống HVU"
     >
       {/* 1. HVU "+ Tạo công việc" Button */}

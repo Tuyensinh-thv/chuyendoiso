@@ -75,11 +75,11 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 p-3 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 p-0 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div 
-        className="bg-white w-full max-w-lg rounded-2xl shadow-xl border border-zinc-200 overflow-hidden flex flex-col max-h-[85vh] text-zinc-900"
+        className="bg-white w-full max-w-lg h-full sm:h-auto sm:max-h-[85vh] rounded-none sm:rounded-2xl shadow-xl border-0 sm:border border-zinc-200 overflow-hidden flex flex-col text-zinc-900"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

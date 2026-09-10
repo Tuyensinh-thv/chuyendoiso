@@ -362,14 +362,17 @@ export async function fetchPublicSpreadsheetData(
 }
 
 export function loadAccessToken(): string {
-  return localStorage.getItem(GOOGLE_ACCESS_TOKEN_KEY) || '';
+  return sessionStorage.getItem(GOOGLE_ACCESS_TOKEN_KEY) || localStorage.getItem(GOOGLE_ACCESS_TOKEN_KEY) || '';
 }
 
 export function saveAccessToken(token: string): void {
-  localStorage.setItem(GOOGLE_ACCESS_TOKEN_KEY, token);
+  sessionStorage.setItem(GOOGLE_ACCESS_TOKEN_KEY, token);
+  // Remove from localStorage if previously stored
+  localStorage.removeItem(GOOGLE_ACCESS_TOKEN_KEY);
 }
 
 export function clearAccessToken(): void {
+  sessionStorage.removeItem(GOOGLE_ACCESS_TOKEN_KEY);
   localStorage.removeItem(GOOGLE_ACCESS_TOKEN_KEY);
 }
 
@@ -401,8 +404,9 @@ export function initGoogleAuthPopup(onSuccess: (token: string) => void, onError:
 
 function launchTokenClient(onSuccess: (token: string) => void, onError: (err: any) => void): void {
   try {
+    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '528953211500-je0ljh9imker5p5bnujppgaps50idn6l.apps.googleusercontent.com';
     const client = (window as any).google.accounts.oauth2.initTokenClient({
-      client_id: '528953211500-je0ljh9imker5p5bnujppgaps50idn6l.apps.googleusercontent.com', // Provisioned app client ID
+      client_id: googleClientId,
       scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file',
       callback: (response: any) => {
         if (response.error_description) {

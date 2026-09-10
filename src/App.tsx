@@ -134,7 +134,12 @@ export default function App() {
   const [ethicalAiSettings, setEthicalAiSettings] = useState<EthicalAiSettings>(() => loadEthicalAiSettings());
 
   // Base Wework Multi-View Navigation: Table (List), Kanban, Gantt, Calendar, Stats
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return true;
+  });
   const [activeView, setActiveView] = useState<'kanban' | 'table' | 'gantt' | 'calendar' | 'stats'>('table');
 
   // Base Wework Perspective (My Tasks)
@@ -728,8 +733,17 @@ export default function App() {
       />
 
       {/* 2. Single Web Page Body: Left Sidebar + Right Base Wework Workspace */}
-      <div className="flex-1 flex min-h-0 overflow-hidden">
+      <div className="flex-1 flex min-h-0 overflow-hidden relative">
         
+        {/* Mobile Backdrop Overlay for Sidebar */}
+        {isSidebarOpen && (
+          <div 
+            className="fixed inset-0 top-16 bg-slate-900/60 backdrop-blur-xs z-30 md:hidden transition-opacity"
+            onClick={() => setIsSidebarOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+
         {/* Left Sidebar (HVU Navigation, Perspectives, Views, Projects, Categories) */}
         <Sidebar
           isOpen={isSidebarOpen}
@@ -962,13 +976,13 @@ export default function App() {
             </div>
 
             {/* HVU Official System Footer */}
-            <footer className="mt-12 py-5 px-6 border-t border-slate-200 bg-white text-slate-600 text-xs flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 rounded-2xl shadow-xs">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-[#0B2545]">TRƯỜNG ĐẠI HỌC HÙNG VƯƠNG (HUNG VUONG UNIVERSITY)</span>
-                <span className="text-slate-300">|</span>
-                <span className="text-slate-500 font-medium">Cổng Điều Hành Chuyển Đổi Số - Thực Thi Nghị Quyết 57-NQ/TW</span>
+            <footer className="mt-8 sm:mt-12 py-4 sm:py-5 px-4 sm:px-6 border-t border-slate-200 bg-white text-slate-600 text-xs flex flex-col sm:flex-row items-center justify-between gap-2.5 shrink-0 rounded-2xl shadow-xs text-center sm:text-left">
+              <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
+                <span className="font-bold text-[#0B2545]">TRƯỜNG ĐẠI HỌC HÙNG VƯƠNG</span>
+                <span className="hidden sm:inline text-slate-300">|</span>
+                <span className="text-slate-500 font-medium text-[11px] sm:text-xs">Cổng Điều Hành Chuyển Đổi Số (NQ57)</span>
               </div>
-              <span className="text-[11px] text-slate-400">© 2026 HVU. Tất cả các quyền được bảo lưu.</span>
+              <span className="text-[11px] text-slate-400">© 2026 HVU. All rights reserved.</span>
             </footer>
 
           </div>

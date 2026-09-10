@@ -314,11 +314,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/50 p-2 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/50 p-0 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div 
-        className="bg-white w-full max-w-5xl rounded-xl shadow-2xl border border-zinc-300 overflow-hidden flex flex-col max-h-[96vh] text-zinc-900"
+        className="bg-white w-full max-w-5xl h-full sm:h-auto sm:max-h-[96vh] rounded-none sm:rounded-xl shadow-2xl border-0 sm:border border-zinc-300 overflow-hidden flex flex-col text-zinc-900"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

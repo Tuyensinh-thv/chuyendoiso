@@ -1,24 +1,26 @@
 import React, { useState } from 'react';
-import { 
-  Search, 
-  Bell, 
-  ChevronDown, 
-  Building, 
-  ShieldCheck, 
-  X,
+import { HVULogo } from './HVULogo';
+import { UserAccount } from '../types';
+import { getRolePermissions } from '../utils/permissions';
+import {
+  Bell,
+  Search,
+  ChevronDown,
+  SlidersHorizontal,
   LogOut,
   Users,
-  SlidersHorizontal
+  X,
+  Menu,
+  ArrowLeft,
+  Building,
+  ShieldCheck
 } from 'lucide-react';
-import { UserAccount, UserRole } from '../types';
-import { INITIAL_ACCOUNTS } from '../data/initialData';
-import { HVULogo } from './HVULogo';
-import { getRolePermissions } from '../utils/permissions';
 
 interface HeaderProps {
   currentUser: UserAccount;
   accounts?: UserAccount[];
-  onSwitchUser: (user: UserAccount) => void;
+  onSwitchUser: (account: UserAccount) => void;
+  onLogout?: () => void;
   urgentCount: number;
   onOpenDailyReminder: () => void;
   onOpenDriveManager: () => void;
@@ -31,30 +33,23 @@ interface HeaderProps {
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
   totalFilteredCount?: number;
-  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   currentUser,
-  accounts,
-  onSwitchUser,
+  onLogout,
   urgentCount,
   onOpenDailyReminder,
-  onOpenDriveManager,
-  onOpenNewTaskModal,
   onOpenEthicalAiSettings,
-  onOpenGoogleSync,
   onOpenUserManagement,
   searchTerm,
   onSearchChange,
-  isSidebarOpen,
   onToggleSidebar,
-  totalFilteredCount,
-  onLogout,
 }) => {
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
 
-  const getRoleBadge = (role: UserRole) => {
+  const getRoleBadge = (role: string) => {
     switch (role) {
       case 'Admin':
         return (
@@ -80,56 +75,111 @@ export const Header: React.FC<HeaderProps> = ({
             Đơn vị chủ trì
           </span>
         );
+      default: return null;
     }
   };
 
   const perms = getRolePermissions(currentUser.vaiTro);
 
   return (
-    <header className="h-16 bg-gradient-to-r from-[#0B2545] via-[#102A4C] to-[#1E3A8A] border-b border-slate-700/60 sticky top-0 z-30 px-3 sm:px-5 flex items-center justify-between gap-3 text-white shadow-md">
+    <header className="h-16 bg-gradient-to-r from-[#0B2545] via-[#102A4C] to-[#1E3A8A] border-b border-slate-700/60 sticky top-0 z-30 px-3 sm:px-5 flex items-center justify-between gap-2 sm:gap-3 text-white shadow-md">
       
-      {/* 1. Left: Official HVU Branding */}
-      <div className="flex items-center gap-3 shrink-0 min-w-0">
-        {/* Authentic HVU Logo & Branding */}
-        <div className="flex items-center gap-2.5">
-          <HVULogo className="w-10 h-10 drop-shadow-sm" />
-          <div className="hidden sm:block">
-            <div className="flex items-center gap-2">
-              <span className="font-black text-xs text-white tracking-tight uppercase leading-tight">
-                TRƯỜNG ĐẠI HỌC HÙNG VƯƠNG
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5 text-[11px] text-[#FFD700] font-bold truncate leading-tight mt-0.5">
-              CỔNG ĐIỀU HÀNH CHUYỂN ĐỔI SỐ
-            </div>
+      {/* Mobile Search Overlay */}
+      {showMobileSearch ? (
+        <div className="flex-1 flex items-center gap-2 animate-in fade-in duration-150">
+          <button
+            onClick={() => setShowMobileSearch(false)}
+            className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+            title="Đóng tìm kiếm"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="flex-1 relative flex items-center">
+            <input
+              type="text"
+              autoFocus
+              placeholder="Tìm kiếm công việc, đơn vị..."
+              value={searchTerm}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="w-full pl-3 pr-9 py-2 bg-slate-800 text-sm rounded-xl border border-slate-600 focus:outline-none text-white placeholder-slate-400"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => onSearchChange('')}
+                className="absolute right-3 p-1 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
-      </div>
-
-      {/* 2. Center: Base Wework Fast Search Omnibox */}
-      <div className="flex-1 max-w-xl mx-2">
-        <div className="relative flex items-center">
-          <div className="absolute left-3.5 text-slate-400 pointer-events-none">
-            <Search className="w-4 h-4" />
-          </div>
-          <input
-            type="text"
-            placeholder="Tìm theo mã nhiệm vụ, tên việc, đơn vị chủ trì, người phụ trách..."
-            value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-10 pr-9 py-2 bg-slate-800/90 hover:bg-slate-800 focus:bg-slate-950 text-xs sm:text-sm rounded-xl border border-slate-700 focus:border-slate-500 focus:shadow-xs focus:outline-hidden transition-all text-slate-100 placeholder-slate-400"
-          />
-          {searchTerm && (
+      ) : (
+        <>
+          {/* 1. Left: Hamburger Menu & HVU Branding */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
             <button
-              onClick={() => onSearchChange('')}
-              className="absolute right-3 p-0.5 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
-              title="Xóa tìm kiếm"
+              onClick={onToggleSidebar}
+              className="p-2 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              title="Menu điều hướng"
+              aria-label="Menu điều hướng"
             >
-              <X className="w-3.5 h-3.5" />
+              <Menu className="w-5 h-5" />
             </button>
-          )}
-        </div>
-      </div>
+
+            {/* Authentic HVU Logo & Branding */}
+            <div className="flex items-center gap-2">
+              <HVULogo className="w-9 h-9 sm:w-10 sm:h-10 drop-shadow-sm shrink-0" />
+              <div className="hidden sm:block">
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-xs text-white tracking-tight uppercase leading-tight">
+                    TRƯỜNG ĐẠI HỌC HÙNG VƯƠNG
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px] text-[#FFD700] font-bold truncate leading-tight mt-0.5">
+                  CỔNG ĐIỀU HÀNH CHUYỂN ĐỔI SỐ
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Center: Desktop Search Omnibox */}
+          <div className="hidden md:block flex-1 max-w-xl mx-2">
+            <div className="relative flex items-center">
+              <div className="absolute left-3.5 text-slate-400 pointer-events-none">
+                <Search className="w-4 h-4" />
+              </div>
+              <input
+                type="text"
+                placeholder="Tìm theo mã nhiệm vụ, tên việc, đơn vị chủ trì, người phụ trách..."
+                value={searchTerm}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="w-full pl-10 pr-9 py-2 bg-slate-800/90 hover:bg-slate-800 focus:bg-slate-950 text-xs sm:text-sm rounded-xl border border-slate-700 focus:border-slate-500 focus:shadow-xs focus:outline-hidden transition-all text-slate-100 placeholder-slate-400"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => onSearchChange('')}
+                  className="absolute right-3 p-0.5 rounded-full hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  title="Xóa tìm kiếm"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Mobile Search Button (when search overlay is closed) */}
+      {!showMobileSearch && (
+        <button
+          onClick={() => setShowMobileSearch(true)}
+          className="md:hidden p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+          title="Tìm kiếm"
+          aria-label="Mở tìm kiếm"
+        >
+          <Search className="w-5 h-5" />
+        </button>
+      )}
 
       {/* 3. Right: Notifications & User Profile */}
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">

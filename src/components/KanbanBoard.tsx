@@ -116,7 +116,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+    <div className="flex overflow-x-auto pb-4 gap-3 snap-x snap-mandatory md:grid md:grid-cols-2 lg:grid-cols-4 md:gap-4 md:overflow-visible items-start scrollbar-thin">
       {COLUMNS.map((column) => {
         const columnTasks = getTasksForColumn(column.id);
 
@@ -125,7 +125,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             key={column.id}
             onDragOver={handleDragOver}
             onDrop={() => handleDrop(column.id)}
-            className={`bg-zinc-100/70 rounded-2xl border border-zinc-200/90 flex flex-col max-h-[calc(100vh-14rem)] overflow-hidden border-t-4 ${column.headerBorder}`}
+            className={`w-[85vw] sm:w-[320px] md:w-auto shrink-0 snap-center md:shrink bg-zinc-100/70 rounded-2xl border border-zinc-200/90 flex flex-col max-h-[calc(100vh-14rem)] overflow-hidden border-t-4 ${column.headerBorder}`}
           >
             {/* Column Header */}
             <div className="p-3.5 border-b border-zinc-200/80 bg-white/70 backdrop-blur-xs flex items-center justify-between sticky top-0 z-10">

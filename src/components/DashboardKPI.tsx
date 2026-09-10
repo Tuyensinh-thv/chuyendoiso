@@ -103,12 +103,12 @@ export const DashboardKPI: React.FC<DashboardKPIProps> = ({
   return (
     <div className="space-y-4">
       {/* 1. Main KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3">
         {/* 1. Hero Card: Tổng nhiệm vụ NQ57 */}
         <button
           id="kpi-card-total"
           onClick={() => onSelectStatusFilter('')}
-          className={`text-left p-4 rounded-2xl transition-all cursor-pointer relative overflow-hidden bg-gradient-to-br from-[#0B2545] via-[#102A4C] to-[#1E3A8A] text-white shadow-md ${
+          className={`col-span-2 lg:col-span-1 text-left p-3.5 sm:p-4 rounded-2xl transition-all cursor-pointer relative overflow-hidden bg-gradient-to-br from-[#0B2545] via-[#102A4C] to-[#1E3A8A] text-white shadow-md ${
             selectedStatusFilter === ''
               ? 'ring-2 ring-[#0066FF] shadow-lg'
               : 'hover:opacity-95'
@@ -246,8 +246,8 @@ export const DashboardKPI: React.FC<DashboardKPIProps> = ({
       {/* 2. Visual Charts & Performance Insights Container */}
       <div className="bg-white rounded-2xl border border-zinc-200/90 p-5 shadow-xs space-y-4">
         {/* Navigation Tabs */}
-        <div className="flex items-center justify-between border-b border-zinc-100 pb-3 flex-wrap gap-2">
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-between border-b border-zinc-100 pb-3 gap-2 overflow-x-auto scrollbar-thin">
+          <div className="flex items-center gap-1.5 shrink-0">
             <button
               onClick={() => setActiveTab('overview')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
