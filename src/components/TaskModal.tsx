@@ -39,6 +39,13 @@ import { formatVietnameseDate, formatDeadlineBadge, formatFileSize } from '../ut
 import { getPriorityMeta, getCategoryBadgeClass } from '../utils/storage';
 import { DEPARTMENTS } from '../data/initialData';
 import { getRolePermissions, isTaskRelatedToUnit } from '../utils/permissions';
+import { 
+  DocumentType, 
+  DOCUMENT_TYPES, 
+  generateTaskFolderPath, 
+  generateEvidenceFileName, 
+  detectDocumentType 
+} from '../utils/driveNamingUtils';
 
 interface TaskModalProps {
   task: TaskNQ57 | null;
@@ -73,6 +80,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const [newChecklistTitle, setNewChecklistTitle] = useState('');
   const [externalDriveUrl, setExternalDriveUrl] = useState(task.linkMinhChung || '');
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedDocType, setSelectedDocType] = useState<DocumentType>('BC');
   const [rightTab, setRightTab] = useState<'checklist' | 'comments'>('checklist');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -131,7 +139,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const currentCategory = categories.find((c) => c.id === formState.category || c.name === formState.category);
   const currentCatBadge = currentCategory ? getCategoryBadgeClass(currentCategory.color) : null;
 
-  // File Upload to Simulated Google Drive storage
+  // File Upload to Simulated Google Drive storage with standardized naming
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -139,8 +147,19 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     setIsUploading(true);
 
     Array.from(files).forEach((file: File) => {
-      const cleanDonVi = formState.donViChuTri.replace(/\s+/g, '');
-      const standardizedName = `${formState.id}_${cleanDonVi}_${file.name.replace(/\s+/g, '_')}`;
+      // Auto-detect docType from file name, fallback to user-selectedDocType
+      const detected = detectDocumentType(file.name);
+      const effectiveDocType = detected !== 'MC' ? detected : selectedDocType;
+
+      // Standardized file name: [NVxx]_[DocType]_[ContentName]_[YYYYMMDD].[ext]
+      const standardizedName = generateEvidenceFileName(
+        formState.id,
+        file.name,
+        effectiveDocType
+      );
+
+      // Standardized folder path: Google_Drive/HVU_NQ57/[NVxx]_[TaskNameClean]
+      const standardizedFolderPath = generateTaskFolderPath(formState.id, formState.tenNhiemVu);
 
       const reader = new FileReader();
       reader.onload = () => {
@@ -152,8 +171,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({
           uploadDate: new Date().toISOString().slice(0, 10),
           uploadedBy: currentUser.hoTen,
           driveUrl: `https://drive.google.com/file/d/hvu-${formState.id.toLowerCase()}-${Date.now()}/view`,
-          driveFolder: `Google_Drive/HVU_NQ57/${cleanDonVi}/${formState.id}`,
+          driveFolder: standardizedFolderPath,
           fileData: reader.result as string,
+          docType: effectiveDocType,
+          originalName: file.name,
         };
 
         setFormState((prev) => ({
@@ -214,20 +235,6 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     setFormState((prev) => ({
       ...prev,
       checklist: (prev.checklist || []).filter((item) => item.id !== id),
-      ngayCapNhat: new Date().toISOString(),
-    }));
-  };
-
-  const handleApplyStandardChecklist = () => {
-    const defaultChecklist: TaskChecklistItem[] = [
-      { id: 'cl_' + Date.now() + '_1', title: 'Xây dựng kế hoạch và phân công chi tiết', completed: (formState.tiendo || 0) >= 30 },
-      { id: 'cl_' + Date.now() + '_2', title: 'Họp rà soát và lấy ý kiến các đơn vị phối hợp', completed: (formState.tiendo || 0) >= 60 },
-      { id: 'cl_' + Date.now() + '_3', title: 'Hoàn thiện hồ sơ & minh chứng kiểm thử', completed: (formState.tiendo || 0) >= 90 },
-      { id: 'cl_' + Date.now() + '_4', title: 'Trình Ban Giám hiệu nghiệm thu & ban hành', completed: (formState.tiendo || 0) === 100 },
-    ];
-    setFormState((prev) => ({
-      ...prev,
-      checklist: defaultChecklist,
       ngayCapNhat: new Date().toISOString(),
     }));
   };
@@ -778,7 +785,22 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                   <Paperclip className="w-3 h-3 text-zinc-600" />
                   Minh chứng Drive ({formState.filesMinhChung?.length || 0})
                 </span>
-                <div>
+                
+                {/* Upload Action with Document Type Selector */}
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={selectedDocType}
+                    onChange={(e) => setSelectedDocType(e.target.value as DocumentType)}
+                    className="text-[10px] font-semibold bg-white border border-zinc-300 rounded px-1.5 py-0.5 text-zinc-800 focus:outline-none"
+                    title="Chọn loại văn bản để mã hóa tên file chuẩn (BC, KH, QD, HD, MC)"
+                  >
+                    {DOCUMENT_TYPES.map((dt) => (
+                      <option key={dt.code} value={dt.code}>
+                        [{dt.code}] {dt.label}
+                      </option>
+                    ))}
+                  </select>
+
                   <input
                     type="file"
                     multiple
@@ -799,26 +821,46 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                 </div>
               </div>
 
+              {/* Subfolder location hint */}
+              <div className="text-[10px] text-zinc-500 font-mono truncate bg-white/70 px-1.5 py-0.5 rounded border border-zinc-200" title={generateTaskFolderPath(formState.id, formState.tenNhiemVu)}>
+                📁 {generateTaskFolderPath(formState.id, formState.tenNhiemVu)}
+              </div>
+
               {/* Uploaded File List */}
-              <div className="space-y-1 max-h-24 overflow-y-auto pr-0.5">
+              <div className="space-y-1 max-h-28 overflow-y-auto pr-0.5">
                 {(!formState.filesMinhChung || formState.filesMinhChung.length === 0) ? (
                   <p className="text-[11px] text-zinc-400 italic py-1">Chưa có tệp minh chứng tải lên.</p>
                 ) : (
-                  formState.filesMinhChung.map((file) => (
-                    <div key={file.id} className="flex items-center justify-between p-1.5 rounded border border-zinc-200 bg-white text-xs">
-                      <span className="text-[11px] font-medium text-zinc-900 truncate max-w-[180px]" title={file.name}>
-                        {file.name}
-                      </span>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button type="button" onClick={() => handleDownloadSimulatedFile(file)} className="p-0.5 text-zinc-600 hover:text-zinc-900" title="Tải về">
-                          <Download className="w-3.5 h-3.5" />
-                        </button>
-                        <button type="button" onClick={() => handleRemoveFile(file.id)} className="p-0.5 text-zinc-400 hover:text-rose-600" title="Xóa">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                  formState.filesMinhChung.map((file) => {
+                    const docBadge = file.docType || (file.name.includes('_KH_') ? 'KH' : file.name.includes('_BC_') ? 'BC' : file.name.includes('_QD_') ? 'QD' : file.name.includes('_HD_') ? 'HD' : 'MC');
+                    const badgeColor = 
+                      docBadge === 'KH' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                      docBadge === 'BC' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                      docBadge === 'QD' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                      docBadge === 'HD' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                      'bg-zinc-100 text-zinc-700 border-zinc-200';
+
+                    return (
+                      <div key={file.id} className="flex items-center justify-between p-1.5 rounded border border-zinc-200 bg-white text-xs">
+                        <div className="flex items-center gap-1.5 min-w-0 pr-1">
+                          <span className={`text-[9px] font-bold px-1 py-0.2 rounded border font-mono shrink-0 ${badgeColor}`}>
+                            {docBadge}
+                          </span>
+                          <span className="text-[11px] font-medium text-zinc-900 truncate max-w-[170px]" title={file.name}>
+                            {file.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button type="button" onClick={() => handleDownloadSimulatedFile(file)} className="p-0.5 text-zinc-600 hover:text-zinc-900" title="Tải về">
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+                          <button type="button" onClick={() => handleRemoveFile(file.id)} className="p-0.5 text-zinc-400 hover:text-rose-600" title="Xóa">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
 
@@ -892,16 +934,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                   <div className="space-y-1 max-h-28 overflow-y-auto pr-0.5">
                     {(!formState.checklist || formState.checklist.length === 0) ? (
                       <div className="text-center py-2 px-1">
-                        <p className="text-[11px] text-zinc-400 italic mb-1.5">Chưa có đầu việc con trong checklist.</p>
-                        {canEditChecklist && (
-                          <button
-                            type="button"
-                            onClick={handleApplyStandardChecklist}
-                            className="px-2 py-0.5 text-[10px] font-semibold text-[#0B2545] bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition-all cursor-pointer inline-flex items-center gap-1 shadow-2xs"
-                          >
-                            <span>+ Áp dụng quy trình chuẩn 4 bước</span>
-                          </button>
-                        )}
+                        <p className="text-[11px] text-zinc-400 italic">Chưa có đầu việc con. Thêm bên dưới ↓</p>
                       </div>
                     ) : (
                       formState.checklist.map((item) => (

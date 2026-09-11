@@ -1054,7 +1054,7 @@ export default function App() {
                 <span className="hidden sm:inline text-slate-300">|</span>
                 <span className="text-slate-500 font-medium text-[11px] sm:text-xs">Cổng Điều Hành Chuyển Đổi Số (NQ57)</span>
               </div>
-              <span className="text-[11px] text-slate-400">© 2026 HVU. All rights reserved.</span>
+              <span className="text-[11px] text-slate-400">© 2026 HVU. Phát triển bởi Tổ Chuyển đổi số.</span>
             </footer>
 
           </div>
@@ -1086,6 +1086,8 @@ export default function App() {
           currentUser={currentUser}
           initialDate={newTaskInitialDate}
           categories={categories}
+          tasks={tasks}
+          existingCount={tasks.length}
         />
       )}
 

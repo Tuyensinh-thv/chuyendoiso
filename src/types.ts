@@ -70,6 +70,8 @@ export interface EvidenceFile {
   driveFolder: string;
   fileData?: string; // base64 preview if available
   isExternalLink?: boolean;
+  docType?: 'KH' | 'BC' | 'QD' | 'HD' | 'MC';
+  originalName?: string;
 }
 
 export interface TaskDirective {

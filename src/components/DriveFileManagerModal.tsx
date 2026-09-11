@@ -27,6 +27,7 @@ export const DriveFileManagerModal: React.FC<DriveFileManagerModalProps> = ({
   if (!isOpen) return null;
 
   const [selectedDept, setSelectedDept] = useState<string>('all');
+  const [selectedDocType, setSelectedDocType] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   // Collect all files from all tasks
@@ -39,11 +40,20 @@ export const DriveFileManagerModal: React.FC<DriveFileManagerModalProps> = ({
 
   const filteredFiles = allFiles.filter(({ file, task }) => {
     const matchesDept = selectedDept === 'all' || task.donViChuTri === selectedDept;
+
+    const fileDocType = file.docType || (
+      file.name.includes('_KH_') ? 'KH' :
+      file.name.includes('_BC_') ? 'BC' :
+      file.name.includes('_QD_') ? 'QD' :
+      file.name.includes('_HD_') ? 'HD' : 'MC'
+    );
+    const matchesDocType = selectedDocType === 'all' || fileDocType === selectedDocType;
+
     const matchesSearch = 
       file.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       task.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       task.tenNhiemVu.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesDept && matchesSearch;
+    return matchesDept && matchesDocType && matchesSearch;
   });
 
   const totalSize = allFiles.reduce((sum, item) => sum + item.file.size, 0);
@@ -78,9 +88,9 @@ export const DriveFileManagerModal: React.FC<DriveFileManagerModalProps> = ({
               <HardDrive className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-zinc-900">Kho Minh chứng Google Drive Tập trung</h2>
+              <h2 className="text-sm font-bold text-zinc-900">Kho Minh chứng Google Drive Theo Từng Nhiệm Vụ</h2>
               <p className="text-[11px] text-zinc-500">
-                Thư mục gốc: <code className="bg-zinc-100 px-1 py-0.5 rounded text-zinc-700">Google_Drive/HVU_NQ57/</code> • Chuẩn đặt tên: <code className="text-zinc-600">[Mã_NV]_[Tên_Đơn_Vị]_[Tên_File]</code>
+                Thư mục chuẩn: <code className="bg-zinc-100 px-1 py-0.5 rounded text-zinc-700 font-mono">HVU_NQ57/[Mã_NV]_[Tên_Nhiệm_Vụ]/</code> • Mã hóa file: <code className="text-zinc-600 font-mono">[Mã_NV]_[Loại]_[NộiDung]_[Ngày].[ext]</code>
               </p>
             </div>
           </div>
@@ -95,8 +105,8 @@ export const DriveFileManagerModal: React.FC<DriveFileManagerModalProps> = ({
 
         {/* Toolbar & Filter */}
         <div className="p-3.5 border-b border-zinc-100 bg-zinc-50/50 flex flex-col sm:flex-row gap-2.5 items-center justify-between shrink-0">
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-60">
+          <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+            <div className="relative flex-1 sm:w-56 min-w-[150px]">
               <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-2.5" />
               <input
                 type="text"
@@ -106,6 +116,19 @@ export const DriveFileManagerModal: React.FC<DriveFileManagerModalProps> = ({
                 className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-zinc-200 rounded-lg text-zinc-900 placeholder-zinc-400 focus:outline-hidden focus:border-zinc-900"
               />
             </div>
+
+            <select
+              value={selectedDocType}
+              onChange={(e) => setSelectedDocType(e.target.value)}
+              className="text-xs bg-white border border-zinc-200 rounded-lg px-2.5 py-1.5 text-zinc-800 focus:outline-hidden focus:border-zinc-900 font-medium"
+            >
+              <option value="all">Tất cả loại văn bản</option>
+              <option value="BC">[BC] Báo cáo</option>
+              <option value="KH">[KH] Kế hoạch</option>
+              <option value="QD">[QD] Quyết định / Chỉ đạo</option>
+              <option value="HD">[HD] Hợp đồng / Nghiệm thu</option>
+              <option value="MC">[MC] Minh chứng khác</option>
+            </select>
 
             <select
               value={selectedDept}
@@ -119,7 +142,7 @@ export const DriveFileManagerModal: React.FC<DriveFileManagerModalProps> = ({
             </select>
           </div>
 
-          <div className="text-[11px] text-zinc-500 font-medium">
+          <div className="text-[11px] text-zinc-500 font-medium shrink-0">
             Tổng số: <strong className="text-zinc-900">{filteredFiles.length}</strong> files ({formatFileSize(totalSize)})
           </div>
         </div>
@@ -132,32 +155,57 @@ export const DriveFileManagerModal: React.FC<DriveFileManagerModalProps> = ({
               <p className="text-xs">Không tìm thấy file minh chứng nào phù hợp điều kiện lọc.</p>
             </div>
           ) : (
-            filteredFiles.map(({ file, task }) => (
-              <div
-                key={file.id}
-                className="p-3 rounded-xl border border-zinc-200 bg-white hover:border-zinc-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-              >
-                <div className="flex items-start gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-lg bg-zinc-100 text-zinc-700 flex items-center justify-center shrink-0 mt-0.5">
-                    <FileText className="w-4 h-4" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-mono text-[10px] font-semibold bg-zinc-100 text-zinc-800 px-1.5 py-0.5 rounded border border-zinc-200">
-                        {task.id}
-                      </span>
-                      <span className="text-[11px] font-semibold text-zinc-600 bg-zinc-50 border border-zinc-200 px-1.5 py-0.2 rounded">
-                        {task.donViChuTri}
-                      </span>
+            filteredFiles.map(({ file, task }) => {
+              const fileDocType = file.docType || (
+                file.name.includes('_KH_') ? 'KH' :
+                file.name.includes('_BC_') ? 'BC' :
+                file.name.includes('_QD_') ? 'QD' :
+                file.name.includes('_HD_') ? 'HD' : 'MC'
+              );
+              const badgeColor = 
+                fileDocType === 'KH' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                fileDocType === 'BC' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                fileDocType === 'QD' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                fileDocType === 'HD' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                'bg-zinc-100 text-zinc-700 border-zinc-200';
+
+              return (
+                <div
+                  key={file.id}
+                  className="p-3 rounded-xl border border-zinc-200 bg-white hover:border-zinc-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-zinc-100 text-zinc-700 flex items-center justify-center shrink-0 mt-0.5">
+                      <FileText className="w-4 h-4" />
                     </div>
-                    <p className="text-xs font-semibold text-zinc-900 truncate mt-1" title={file.name}>
-                      {file.name}
-                    </p>
-                    <p className="text-[11px] text-zinc-400 mt-0.5">
-                      {formatFileSize(file.size)} • {formatVietnameseDate(file.uploadDate)} • {file.uploadedBy}
-                    </p>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-mono text-[10px] font-semibold bg-zinc-100 text-zinc-800 px-1.5 py-0.5 rounded border border-zinc-200">
+                          {task.id}
+                        </span>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border font-mono ${badgeColor}`}>
+                          {fileDocType}
+                        </span>
+                        <span className="text-[11px] font-semibold text-zinc-600 bg-zinc-50 border border-zinc-200 px-1.5 py-0.2 rounded">
+                          {task.donViChuTri}
+                        </span>
+                      </div>
+                      <p className="text-xs font-semibold text-zinc-900 truncate mt-1" title={file.name}>
+                        {file.name}
+                      </p>
+                      <div className="flex items-center gap-2 flex-wrap text-[11px] text-zinc-400 mt-0.5">
+                        <span className="text-zinc-600 font-mono text-[10px]">
+                          📁 {file.driveFolder || `HVU_NQ57/${task.id}`}
+                        </span>
+                        <span>•</span>
+                        <span>{formatFileSize(file.size)}</span>
+                        <span>•</span>
+                        <span>{formatVietnameseDate(file.uploadDate)}</span>
+                        <span>•</span>
+                        <span>{file.uploadedBy}</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
 
                 <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                   <button
@@ -178,9 +226,10 @@ export const DriveFileManagerModal: React.FC<DriveFileManagerModalProps> = ({
                   </button>
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            );
+          })
+        )}
+      </div>
 
         {/* Footer */}
         <div className="px-6 py-3.5 border-t border-zinc-100 flex items-center justify-end shrink-0">

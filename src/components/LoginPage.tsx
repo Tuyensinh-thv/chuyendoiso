@@ -264,7 +264,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, accounts }) => {
 
       {/* Footer */}
       <footer className="text-center text-[11px] text-slate-400 z-10 mt-6">
-        © 2026 Hung Vuong University. All rights reserved.
+        © 2026 HVU. Phát triển bởi Tổ Chuyển đổi số.
       </footer>
     </div>
   );

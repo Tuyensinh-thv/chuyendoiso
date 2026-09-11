@@ -856,21 +856,67 @@ export async function importFromGoogleSheets(): Promise<{
 }
 
 /**
+ * Finds or creates a task-specific subfolder within the root Google Drive folder
+ */
+export async function getOrCreateTaskFolder(
+  parentFolderId: string,
+  folderName: string
+): Promise<string> {
+  try {
+    // Search for existing folder with same name inside parent
+    const query = `mimeType = 'application/vnd.google-apps.folder' and name = '${folderName.replace(/'/g, "\\'")}' and '${parentFolderId}' in parents and trashed = false`;
+    const searchRes = await googleFetch(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)&spaces=drive`
+    );
+
+    if (searchRes.files && searchRes.files.length > 0) {
+      return searchRes.files[0].id;
+    }
+
+    // Create new subfolder if not found
+    const createRes = await googleFetch('https://www.googleapis.com/drive/v3/files', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: folderName,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [parentFolderId],
+      }),
+    });
+
+    return createRes.id;
+  } catch (error) {
+    console.warn('Could not create/find task subfolder on Drive, falling back to parent folder:', error);
+    return parentFolderId;
+  }
+}
+
+/**
  * Uploads a file (evidence) directly into the user's Google Drive folder
+ * Optionally creates a subfolder per task and standardizes the file name
  */
 export async function uploadFileToGoogleDrive(
   file: File,
-  folderId?: string
-): Promise<{ driveUrl: string; fileId: string }> {
+  folderId?: string,
+  customFileName?: string,
+  subfolderName?: string
+): Promise<{ driveUrl: string; fileId: string; folderId: string }> {
   const config = loadSyncConfig();
-  const targetFolderId = folderId || config.driveFolderId;
+  const rootFolderId = folderId || config.driveFolderId;
 
-  if (!targetFolderId) {
+  if (!rootFolderId) {
     throw new Error('Chưa thiết lập thư mục lưu trữ Google Drive trong cấu hình hệ thống.');
   }
 
+  // Determine target folder (either task subfolder or root folder)
+  let targetFolderId = rootFolderId;
+  if (subfolderName) {
+    targetFolderId = await getOrCreateTaskFolder(rootFolderId, subfolderName);
+  }
+
+  const fileName = customFileName || file.name;
+
   const metadata = {
-    name: file.name,
+    name: fileName,
     parents: [targetFolderId],
   };
 
@@ -892,5 +938,7 @@ export async function uploadFileToGoogleDrive(
   return {
     driveUrl: response.webViewLink || `https://drive.google.com/file/d/${response.id}/view`,
     fileId: response.id,
+    folderId: targetFolderId,
   };
 }
+

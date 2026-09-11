@@ -9,7 +9,8 @@ interface NewTaskModalProps {
   onClose: () => void;
   onAddTask: (task: TaskNQ57) => void;
   currentUser: UserAccount;
-  existingCount: number;
+  existingCount?: number;
+  tasks?: TaskNQ57[];
   initialDate?: string;
   categories: CustomCategory[];
   onOpenCategoryManager?: () => void;
@@ -20,15 +21,35 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   onClose,
   onAddTask,
   existingCount,
+  tasks,
   initialDate,
   categories,
   onOpenCategoryManager,
 }) => {
   if (!isOpen) return null;
 
-  const nextId = `NV${String(existingCount + 1).padStart(2, '0')}`;
+  // Determine next task ID robustly by finding max existing NVxx
+  const computedNextId = React.useMemo(() => {
+    if (tasks && tasks.length > 0) {
+      const maxNum = tasks.reduce((max, t) => {
+        const match = (t.id || '').match(/^NV(\d+)$/i);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          return num > max ? num : max;
+        }
+        return max;
+      }, 0);
+      return `NV${String(maxNum + 1).padStart(2, '0')}`;
+    }
+    const count = typeof existingCount === 'number' && !isNaN(existingCount) ? existingCount : 57;
+    return `NV${String(count + 1).padStart(2, '0')}`;
+  }, [tasks, existingCount]);
 
-  const [id, setId] = useState(nextId);
+  const [id, setId] = useState(computedNextId);
+
+  useEffect(() => {
+    setId(computedNextId);
+  }, [computedNextId]);
   const [tenNhiemVu, setTenNhiemVu] = useState('');
   const [nhomKeHoach, setNhomKeHoach] = useState(PLAN_GROUPS[0]);
   const [selectedChuTri, setSelectedChuTri] = useState<string[]>([DEPARTMENTS[17] || 'Văn phòng']);
@@ -80,7 +101,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
     const finalPhoiHop = [...selectedPhoiHop, customPhoiHop.trim()].filter(Boolean).join(', ');
 
     const newTask: TaskNQ57 = {
-      id: id.trim() || nextId,
+      id: id.trim() || computedNextId,
       nhomKeHoach,
       tenNhiemVu: tenNhiemVu.trim(),
       donViChuTri: finalChuTri,
@@ -98,6 +119,10 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
       tiendo: 0,
       mucDoUuTien,
       category: selectedCategory,
+      checklist: [],
+      comments: [],
+      directivesHistory: [],
+      notesHistory: [],
     };
 
     onAddTask(newTask);
