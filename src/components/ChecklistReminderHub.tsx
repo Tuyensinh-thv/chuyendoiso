@@ -417,38 +417,6 @@ export const ChecklistReminderHub: React.FC<ChecklistReminderHubProps> = ({
 
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-[#f8fafc] overflow-y-auto">
-      
-      {/* 1. Header Banner */}
-      <div className="bg-gradient-to-r from-[#0B2545] via-[#133E87] to-[#1E3A8A] text-white px-5 sm:px-8 py-5 shadow-md">
-        <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-[#FFD700] shadow-inner">
-                <ListTodo className="w-6 h-6" />
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
-                  Trung Tâm Nhắc Nhở & Đôn Đốc Hàng Ngày
-                </h1>
-                <p className="text-xs sm:text-sm text-slate-200">
-                  Hệ thống giám sát và quản lý chi tiết toàn bộ đầu việc con (Checklist) của 59 nhiệm vụ NQ57
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Directive Shortcut for Leaders */}
-          {isLeaderOrAdmin && onOpenDirectives && (
-            <button
-              onClick={onOpenDirectives}
-              className="self-start md:self-auto flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-semibold text-amber-300 hover:text-amber-200 transition-all shadow-xs cursor-pointer"
-            >
-              <MessageSquareQuote className="w-4 h-4 text-amber-400" />
-              <span>Phát hành chỉ đạo BGH</span>
-            </button>
-          )}
-        </div>
-      </div>
 
       <div className="max-w-[1600px] mx-auto w-full p-4 sm:p-6 space-y-6">
 
