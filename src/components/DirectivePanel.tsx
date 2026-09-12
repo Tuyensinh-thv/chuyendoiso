@@ -6,7 +6,8 @@ import {
   ArrowRight,
   ShieldAlert,
   CheckCircle2,
-  Calendar
+  Calendar,
+  ArrowLeft
 } from 'lucide-react';
 import { TaskNQ57, UserAccount } from '../types';
 import { DEPARTMENTS } from '../data/initialData';
@@ -19,6 +20,7 @@ interface DirectivePanelProps {
   currentUser: UserAccount;
   onSelectTask: (task: TaskNQ57) => void;
   onAddDirectiveToTask: (taskId: string, directiveText: string) => void;
+  isFullPage?: boolean;
 }
 
 export const DirectivePanel: React.FC<DirectivePanelProps> = ({
@@ -28,6 +30,7 @@ export const DirectivePanel: React.FC<DirectivePanelProps> = ({
   currentUser,
   onSelectTask,
   onAddDirectiveToTask,
+  isFullPage = false,
 }) => {
   if (!isOpen) return null;
 
@@ -78,32 +81,43 @@ export const DirectivePanel: React.FC<DirectivePanelProps> = ({
     setDeadlineDate('');
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
-      <div className="bg-white rounded-none sm:rounded-2xl max-w-4xl w-full h-full sm:h-auto sm:max-h-[88vh] flex flex-col shadow-2xl border-0 sm:border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-        
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-[#0B2545] to-[#1E3A8A] text-white flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-[#FFD700]">
-              <MessageSquareQuote className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-bold">
-                Trung Tâm Chỉ Đạo & Trao Đổi Điều Hành
-              </h2>
-              <p className="text-xs text-slate-300">
-                Ý kiến chỉ đạo của Ban Giám hiệu và phản hồi báo cáo từ các đơn vị thực hiện NQ57
-              </p>
-            </div>
+  const panelContent = (
+    <div className={isFullPage
+      ? "bg-white w-full flex-1 flex flex-col overflow-hidden animate-in fade-in duration-150 min-h-0"
+      : "bg-white rounded-none sm:rounded-2xl max-w-4xl w-full h-full sm:h-auto sm:max-h-[88vh] flex flex-col shadow-2xl border-0 sm:border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+    }>
+      {/* Header */}
+      <div className="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-[#0B2545] to-[#1E3A8A] text-white flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {isFullPage && (
+            <button
+              onClick={onClose}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold transition-all shadow-xs cursor-pointer mr-1"
+              title="Quay lại danh sách nhiệm vụ"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Quay lại danh sách</span>
+            </button>
+          )}
+          <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-[#FFD700] shrink-0">
+            <MessageSquareQuote className="w-5 h-5" />
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div>
+            <h2 className="text-base font-bold">
+              Trung Tâm Chỉ Đạo & Trao Đổi Điều Hành
+            </h2>
+            <p className="text-xs text-slate-300">
+              Ý kiến chỉ đạo của Ban Giám hiệu và phản hồi báo cáo từ các đơn vị thực hiện NQ57
+            </p>
+          </div>
         </div>
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
 
         {/* Content Layout - Single Column Vertical Flow */}
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
@@ -263,6 +277,15 @@ export const DirectivePanel: React.FC<DirectivePanelProps> = ({
         </div>
 
       </div>
+    );
+
+  if (isFullPage) {
+    return panelContent;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
+      {panelContent}
     </div>
   );
 };

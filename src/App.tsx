@@ -204,7 +204,11 @@ export default function App() {
         onSwitchUser={handleSwitchUserAction}
         onLogout={handleLogoutAction}
         urgentCount={urgentTasks.length}
-        onOpenDailyReminder={() => openModal('dailyReminder')}
+        onOpenDailyReminder={() => {
+          setActiveView('checklistHub');
+          setSelectedTask(null);
+          closeModal();
+        }}
         onOpenDriveManager={() => openModal('driveManager')}
         onOpenNewTaskModal={() => {
           setNewTaskInitialDate(undefined);
@@ -243,14 +247,26 @@ export default function App() {
             setNewTaskInitialDate(undefined);
             openModal('newTask');
           }}
-          onOpenDailyReminder={() => openModal('dailyReminder')}
+          onOpenDailyReminder={() => {
+            setActiveView('checklistHub');
+            setSelectedTask(null);
+            closeModal();
+          }}
           onOpenDriveManager={() => openModal('driveManager')}
           onOpenCategoryManager={() => openModal('categoryManager')}
           onOpenEthicalAiSettings={() => openModal('ethicalAiSettings')}
           onOpenGoogleSync={() => openModal('googleSync')}
           onOpenUserManagement={() => openModal('userManagement')}
-          onOpenAuditLogs={() => setActiveView('auditLogs')}
-          onOpenDirectives={() => openModal('directives')}
+          onOpenAuditLogs={() => {
+            setActiveView('auditLogs');
+            setSelectedTask(null);
+            closeModal();
+          }}
+          onOpenDirectives={() => {
+            setActiveView('directives');
+            setSelectedTask(null);
+            closeModal();
+          }}
           onExportData={() => exportTasksToCSV(tasks)}
           onResetData={handleResetData}
           totalTasksCount={accessibleTasks.length}
@@ -280,14 +296,81 @@ export default function App() {
 
         {/* Right Main Content Area */}
         <main className="flex-1 flex flex-col min-w-0 bg-[#fafafb] overflow-y-auto">
-          {activeView === 'checklistHub' ? (
+          {/* 1. Chi tiết nhiệm vụ (Full View thay thế hoàn toàn Popup) */}
+          {selectedTask ? (
+            <div className="flex-1 flex flex-col min-w-0">
+              <TaskModal
+                task={selectedTask}
+                isOpen={true}
+                isFullPage={true}
+                currentUser={currentUser}
+                onClose={() => setSelectedTask(null)}
+                onSaveTask={async (updatedTask) => {
+                  await handleSaveTask(updatedTask);
+                  setSelectedTask(null);
+                }}
+                onDeleteTask={(id) => {
+                  handleDeleteTask(id);
+                  setSelectedTask(null);
+                }}
+                onApproveTask={handleApproveTask}
+                categories={categories}
+                accounts={accounts}
+              />
+              <div className="max-w-[1600px] mx-auto w-full px-4 sm:px-6 pb-6">
+                <footer className="mt-6 py-4 px-6 border border-slate-200 bg-white text-slate-600 text-xs flex flex-col sm:flex-row items-center justify-between gap-2.5 shrink-0 rounded-2xl shadow-xs text-center sm:text-left">
+                  <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
+                    <span className="font-bold text-[#0B2545]">TRƯỜNG ĐẠI HỌC HÙNG VƯƠNG</span>
+                    <span className="hidden sm:inline text-slate-300">|</span>
+                    <span className="text-slate-500 font-medium text-[11px] sm:text-xs">
+                      Cổng Điều Hành Chuyển Đổi Số (NQ57)
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-400">
+                    © 2026 HVU. Phát triển bởi Tổ Chuyển đổi số.
+                  </span>
+                </footer>
+              </div>
+            </div>
+          ) : activeView === 'checklistHub' ? (
+            /* 2. Trung tâm Nhắc nhở & Đôn đốc Hàng ngày (Full View) */
             <div className="flex-1 flex flex-col min-w-0">
               <ChecklistReminderHub
                 tasks={accessibleTasks}
                 currentUser={currentUser}
                 onUpdateTask={handleSaveTask}
                 onSelectTask={(task) => setSelectedTask(task)}
-                onOpenDirectives={() => openModal('directives')}
+                onOpenDirectives={() => {
+                  setActiveView('directives');
+                  setSelectedTask(null);
+                }}
+              />
+              <div className="max-w-[1600px] mx-auto w-full px-4 sm:px-6 pb-6">
+                <footer className="mt-6 py-4 px-6 border border-slate-200 bg-white text-slate-600 text-xs flex flex-col sm:flex-row items-center justify-between gap-2.5 shrink-0 rounded-2xl shadow-xs text-center sm:text-left">
+                  <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
+                    <span className="font-bold text-[#0B2545]">TRƯỜNG ĐẠI HỌC HÙNG VƯƠNG</span>
+                    <span className="hidden sm:inline text-slate-300">|</span>
+                    <span className="text-slate-500 font-medium text-[11px] sm:text-xs">
+                      Cổng Điều Hành Chuyển Đổi Số (NQ57)
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-400">
+                    © 2026 HVU. Phát triển bởi Tổ Chuyển đổi số.
+                  </span>
+                </footer>
+              </div>
+            </div>
+          ) : activeView === 'directives' ? (
+            /* 3. Trung tâm Chỉ đạo & Điều hành BGH (Full View) */
+            <div className="flex-1 flex flex-col min-w-0">
+              <DirectivePanel
+                isOpen={true}
+                isFullPage={true}
+                onClose={() => setActiveView('table')}
+                tasks={tasks}
+                currentUser={currentUser}
+                onSelectTask={(t) => setSelectedTask(t)}
+                onAddDirectiveToTask={handleAddDirectiveToTask}
               />
               <div className="max-w-[1600px] mx-auto w-full px-4 sm:px-6 pb-6">
                 <footer className="mt-6 py-4 px-6 border border-slate-200 bg-white text-slate-600 text-xs flex flex-col sm:flex-row items-center justify-between gap-2.5 shrink-0 rounded-2xl shadow-xs text-center sm:text-left">
@@ -305,6 +388,7 @@ export default function App() {
               </div>
             </div>
           ) : (
+            /* 4. Danh sách nhiệm vụ chuẩn (ảnh 3) */
             <>
               {/* Top KPI Cards right below Header */}
               {activeView !== 'auditLogs' && (
@@ -556,21 +640,6 @@ export default function App() {
       </div>
 
       {/* MODALS */}
-      {/* 1. Task Modal */}
-      {selectedTask && (
-        <TaskModal
-          task={selectedTask}
-          isOpen={!!selectedTask}
-          currentUser={currentUser}
-          onClose={() => setSelectedTask(null)}
-          onSaveTask={handleSaveTask}
-          onDeleteTask={handleDeleteTask}
-          onApproveTask={handleApproveTask}
-          categories={categories}
-          accounts={accounts}
-        />
-      )}
-
       {/* 2. New Task Modal */}
       {activeModal === 'newTask' && (
         <NewTaskModal
@@ -582,22 +651,6 @@ export default function App() {
           categories={categories}
           tasks={tasks}
           existingCount={tasks.length}
-        />
-      )}
-
-      {/* 3. Daily Reminder Modal */}
-      {activeModal === 'dailyReminder' && (
-        <DailyReminderModal
-          isOpen={true}
-          onClose={closeModal}
-          tasks={tasks}
-          settings={reminderSettings}
-          onSaveSettings={handleSaveReminderSettings}
-          onSelectTask={(task) => {
-            closeModal();
-            setSelectedTask(task);
-          }}
-          currentUser={currentUser}
         />
       )}
 
@@ -710,16 +763,6 @@ export default function App() {
           const t = tasks.find((item) => item.id === id);
           if (t) setSelectedTask(t);
         }}
-      />
-
-      {/* 9. Leadership Directives & Communication Center */}
-      <DirectivePanel
-        isOpen={activeModal === 'directives'}
-        onClose={closeModal}
-        tasks={tasks}
-        currentUser={currentUser}
-        onSelectTask={(t) => setSelectedTask(t)}
-        onAddDirectiveToTask={handleAddDirectiveToTask}
       />
     </div>
   );

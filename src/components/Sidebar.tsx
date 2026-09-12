@@ -810,17 +810,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         )}
 
-        {/* Chỉ đạo BGH: Ở đáy chỉ hiển thị cho các vai trò KHÁC (Đơn vị, Tổ chuyên trách) để xem chỉ đạo của BGH */}
-        {!isLeader && (
-          <button
-            onClick={() => { onOpenDirectives(); closeOnMobile(); }}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-amber-300 hover:text-amber-200 hover:bg-white/10 transition-colors text-xs cursor-pointer font-medium"
-            title="Xem ý kiến chỉ đạo của Ban Giám hiệu"
-          >
-            <MessageSquareQuote className="w-4 h-4 shrink-0 text-amber-400" />
-            {isOpen && <span className="truncate">Ý kiến chỉ đạo BGH</span>}
-          </button>
-        )}
+        {/* Chỉ đạo BGH */}
+        <button
+          onClick={() => { onSelectView('directives'); closeOnMobile(); }}
+          className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-colors text-xs cursor-pointer font-medium ${
+            activeView === 'directives'
+              ? 'bg-white/20 text-white font-semibold shadow-2xs'
+              : 'text-amber-300 hover:text-amber-200 hover:bg-white/10'
+          }`}
+          title="Xem ý kiến chỉ đạo của Ban Giám hiệu"
+        >
+          <MessageSquareQuote className={`w-4 h-4 shrink-0 ${activeView === 'directives' ? 'text-white' : 'text-amber-400'}`} />
+          {isOpen && <span className="truncate">Ý kiến chỉ đạo BGH</span>}
+        </button>
 
         {perms.canViewAuditLogs && (
           <button

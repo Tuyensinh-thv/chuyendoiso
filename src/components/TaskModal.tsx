@@ -24,7 +24,8 @@ import {
   MessageSquare,
   ShieldCheck,
   RefreshCw,
-  Award
+  Award,
+  ArrowLeft
 } from 'lucide-react';
 import { 
   TaskNQ57, 
@@ -60,6 +61,7 @@ interface TaskModalProps {
   categories?: CustomCategory[];
   onOpenCategoryManager?: () => void;
   accounts?: UserAccount[];
+  isFullPage?: boolean;
 }
 
 export const TaskModal: React.FC<TaskModalProps> = ({
@@ -73,6 +75,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   categories = [],
   onOpenCategoryManager,
   accounts = [],
+  isFullPage = false,
 }) => {
   if (!isOpen || !task) return null;
 
@@ -506,21 +509,29 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const totalChecklist = formState.checklist?.length || 0;
   const completedChecklist = formState.checklist?.filter((item) => item.completed).length || 0;
 
-  return (
+  const modalContent = (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/50 p-0 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150"
-      onClick={onClose}
+      className={isFullPage 
+        ? "bg-white w-full flex-1 flex flex-col text-zinc-900 min-h-0" 
+        : "bg-white w-full max-w-6xl h-full sm:h-auto sm:max-h-[96vh] rounded-none sm:rounded-xl shadow-2xl border-0 sm:border border-zinc-300 overflow-hidden flex flex-col text-zinc-900"
+      }
+      onClick={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
     >
-      <div 
-        className="bg-white w-full max-w-6xl h-full sm:h-auto sm:max-h-[96vh] rounded-none sm:rounded-xl shadow-2xl border-0 sm:border border-zinc-300 overflow-hidden flex flex-col text-zinc-900"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-      >
-        
-        {/* Header with Task ID & Title */}
-        <div className="px-4 py-2.5 border-b border-zinc-200 bg-zinc-50/70 flex items-start justify-between gap-3 shrink-0">
-          <div className="space-y-1 min-w-0 flex-1">
+      {/* Header with Task ID & Title */}
+      <div className={`px-4 sm:px-6 py-3 border-b border-zinc-200 bg-zinc-50/70 flex items-start justify-between gap-3 shrink-0 ${isFullPage ? 'bg-white shadow-2xs' : ''}`}>
+        {isFullPage && (
+          <button
+            onClick={onClose}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0B2545] text-white hover:bg-[#1E3A8A] text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0 mr-1 mt-0.5"
+            title="Quay lại danh sách nhiệm vụ"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Quay lại danh sách</span>
+          </button>
+        )}
+        <div className="space-y-1 min-w-0 flex-1">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="bg-zinc-900 text-white text-[11px] font-mono font-bold px-2 py-0.5 rounded shadow-2xs">
                 {formState.id}
@@ -1543,6 +1554,18 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         </div>
 
       </div>
+    );
+
+  if (isFullPage) {
+    return modalContent;
+  }
+
+  return (
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/50 p-0 sm:p-4 backdrop-blur-xs animate-in fade-in duration-150"
+      onClick={onClose}
+    >
+      {modalContent}
     </div>
   );
 };

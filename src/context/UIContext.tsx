@@ -16,7 +16,7 @@ type ActiveModal =
   | 'auditLogs'
   | 'directives';
 
-export type ActiveView = 'kanban' | 'table' | 'gantt' | 'calendar' | 'stats' | 'auditLogs' | 'checklistHub';
+export type ActiveView = 'kanban' | 'table' | 'gantt' | 'calendar' | 'stats' | 'auditLogs' | 'checklistHub' | 'directives';
 
 interface FilterState {
   searchTerm: string;
