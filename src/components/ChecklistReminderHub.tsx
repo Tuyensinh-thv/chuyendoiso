@@ -19,7 +19,8 @@ import {
   Building,
   Table as TableIcon,
   Layers,
-  ChevronDown
+  ChevronDown,
+  Activity
 } from 'lucide-react';
 import { TaskNQ57, TaskChecklistItem, UserAccount } from '../types';
 import { DEPARTMENTS } from '../data/initialData';
@@ -52,7 +53,7 @@ export const ChecklistReminderHub: React.FC<ChecklistReminderHubProps> = ({
   // State: Filter & Views
   const [viewMode, setViewMode] = useState<'timeline' | 'table'>('timeline');
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [filterTime, setFilterTime] = useState<'all' | 'overdue' | 'today' | 'dueSoon' | 'completed'>('all');
+  const [filterTime, setFilterTime] = useState<'all' | 'overdue' | 'today' | 'dueSoon' | 'inProgress' | 'completed'>('all');
   const [filterAssignee, setFilterAssignee] = useState<'all' | 'mine' | string>('all');
   const [filterDept, setFilterDept] = useState<string>('all');
   const [filterEvaluation, setFilterEvaluation] = useState<'all' | 'Dat' | 'Chua_Dat' | 'Chua_Danh_Gia'>('all');
@@ -197,13 +198,15 @@ export const ChecklistReminderHub: React.FC<ChecklistReminderHubProps> = ({
         }
       }
 
-      // Time Range Filter
+      // Time Range / Status Filter
       if (filterTime === 'overdue') {
         if (item.completed || item.dueDateStatus.status !== 'overdue') return false;
       } else if (filterTime === 'today') {
         if (item.completed || item.dueDateStatus.status !== 'today') return false;
       } else if (filterTime === 'dueSoon') {
         if (item.completed || (item.dueDateStatus.status !== 'today' && item.dueDateStatus.status !== 'dueSoon')) return false;
+      } else if (filterTime === 'inProgress') {
+        if (item.completed) return false;
       } else if (filterTime === 'completed') {
         if (!item.completed) return false;
       }
@@ -354,6 +357,64 @@ export const ChecklistReminderHub: React.FC<ChecklistReminderHubProps> = ({
     return dStr;
   };
 
+  const statCards = [
+    {
+      id: 'all',
+      label: 'Tất cả việc con',
+      count: metrics.total,
+      sub: `${metrics.completionRate}% hoàn thành`,
+      icon: Layers,
+      badgeColor: 'bg-slate-100 text-[#0B2545]',
+      activeStyle: 'border-[#0B2545] ring-2 ring-[#0B2545]/15 bg-slate-50/90 text-slate-900',
+      activeBadgeColor: 'bg-[#0B2545] text-white',
+      countColor: 'text-[#0B2545]',
+    },
+    {
+      id: 'completed',
+      label: 'Đã hoàn thành',
+      count: metrics.completed,
+      sub: `${metrics.total > 0 ? Math.round((metrics.completed / metrics.total) * 100) : 0}% tổng số`,
+      icon: CheckCircle2,
+      badgeColor: 'bg-emerald-100 text-emerald-700',
+      activeStyle: 'border-emerald-600 ring-2 ring-emerald-500/15 bg-emerald-50/50 text-emerald-950',
+      activeBadgeColor: 'bg-emerald-600 text-white',
+      countColor: 'text-emerald-700',
+    },
+    {
+      id: 'inProgress',
+      label: 'Đang thực hiện',
+      count: metrics.inProgress,
+      sub: 'Đang xúc tiến',
+      icon: Activity,
+      badgeColor: 'bg-sky-100 text-sky-700',
+      activeStyle: 'border-sky-600 ring-2 ring-sky-500/15 bg-sky-50/50 text-sky-950',
+      activeBadgeColor: 'bg-sky-600 text-white',
+      countColor: 'text-sky-700',
+    },
+    {
+      id: 'dueSoon',
+      label: 'Sắp đến hạn',
+      count: metrics.dueSoon + metrics.today,
+      sub: metrics.today > 0 ? `${metrics.today} việc hôm nay` : 'Cần chú ý',
+      icon: Clock,
+      badgeColor: 'bg-amber-100 text-amber-700',
+      activeStyle: 'border-amber-600 ring-2 ring-amber-500/15 bg-amber-50/50 text-amber-950',
+      activeBadgeColor: 'bg-amber-600 text-white',
+      countColor: 'text-amber-700',
+    },
+    {
+      id: 'overdue',
+      label: 'Quá hạn',
+      count: metrics.overdue,
+      sub: 'Cần đôn đốc ngay',
+      icon: AlertTriangle,
+      badgeColor: 'bg-rose-100 text-rose-700',
+      activeStyle: 'border-rose-600 ring-2 ring-rose-500/15 bg-rose-50/50 text-rose-950',
+      activeBadgeColor: 'bg-rose-600 text-white',
+      countColor: 'text-rose-700',
+    },
+  ];
+
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-[#f8fafc] overflow-y-auto">
       
@@ -392,110 +453,50 @@ export const ChecklistReminderHub: React.FC<ChecklistReminderHubProps> = ({
       <div className="max-w-[1600px] mx-auto w-full p-4 sm:p-6 space-y-6">
 
         {/* 2. Top Metric Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          
-          {/* Card: Overdue */}
-          <div 
-            onClick={() => setFilterTime(filterTime === 'overdue' ? 'all' : 'overdue')}
-            className={`p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs ${
-              filterTime === 'overdue' 
-                ? 'bg-rose-50 border-rose-400 ring-2 ring-rose-400/30' 
-                : 'bg-white border-slate-200 hover:border-rose-300 hover:bg-rose-50/20'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider">Quá hạn</span>
-              <AlertTriangle className="w-4 h-4 text-rose-600" />
-            </div>
-            <div className="text-2xl font-black text-rose-700">{metrics.overdue}</div>
-            <p className="text-[10px] text-slate-500 mt-1">Cần đôn đốc ngay</p>
-          </div>
+        <div className="w-full">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+            {statCards.map((item, index) => {
+              const Icon = item.icon;
+              const isActive = filterTime === item.id || (filterTime === 'all' && item.id === 'all');
+              const spanClass = index === 0 ? 'col-span-2 sm:col-span-1' : 'col-span-1';
 
-          {/* Card: Today */}
-          <div 
-            onClick={() => setFilterTime(filterTime === 'today' ? 'all' : 'today')}
-            className={`p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs ${
-              filterTime === 'today' 
-                ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-400/30' 
-                : 'bg-white border-slate-200 hover:border-amber-300 hover:bg-amber-50/20'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">Hạn hôm nay</span>
-              <Clock className="w-4 h-4 text-amber-600" />
-            </div>
-            <div className="text-2xl font-black text-amber-700">{metrics.today}</div>
-            <p className="text-[10px] text-slate-500 mt-1">Ưu tiên xử lý</p>
-          </div>
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setFilterTime(filterTime === item.id && item.id !== 'all' ? 'all' : item.id as any)}
+                  className={`relative flex items-center justify-between py-2 px-3 sm:px-3.5 rounded-xl border text-left transition-all duration-150 cursor-pointer group shadow-2xs ${spanClass} ${
+                    isActive 
+                      ? `${item.activeStyle} shadow-xs font-medium` 
+                      : 'bg-white hover:bg-slate-50/80 border-slate-200 text-slate-800 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                        isActive ? item.activeBadgeColor : item.badgeColor
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs sm:text-[13px] font-semibold leading-tight truncate text-slate-800">
+                        {item.label}
+                      </div>
+                      <div className="text-[11px] text-slate-500 truncate mt-0.5">
+                        {item.sub}
+                      </div>
+                    </div>
+                  </div>
 
-          {/* Card: Due Soon (3 days) */}
-          <div 
-            onClick={() => setFilterTime(filterTime === 'dueSoon' ? 'all' : 'dueSoon')}
-            className={`p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs ${
-              filterTime === 'dueSoon' 
-                ? 'bg-orange-50 border-orange-400 ring-2 ring-orange-400/30' 
-                : 'bg-white border-slate-200 hover:border-orange-300 hover:bg-orange-50/20'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[11px] font-bold text-orange-700 uppercase tracking-wider">Trong 3 ngày</span>
-              <Calendar className="w-4 h-4 text-orange-600" />
-            </div>
-            <div className="text-2xl font-black text-orange-700">{metrics.dueSoon}</div>
-            <p className="text-[10px] text-slate-500 mt-1">Sắp đến hạn</p>
+                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                    <span className={`text-lg sm:text-xl font-bold tabular-nums ${isActive ? item.countColor : 'text-slate-800'}`}>
+                      {item.count}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
-
-          {/* Card: In Progress */}
-          <div 
-            onClick={() => setFilterTime('all')}
-            className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-blue-300 transition-all cursor-pointer"
-          >
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">Đang làm</span>
-              <RotateCcw className="w-4 h-4 text-blue-600" />
-            </div>
-            <div className="text-2xl font-black text-blue-800">{metrics.inProgress}</div>
-            <p className="text-[10px] text-slate-500 mt-1">Chưa nộp / Đang chạy</p>
-          </div>
-
-          {/* Card: Completed */}
-          <div 
-            onClick={() => setFilterTime(filterTime === 'completed' ? 'all' : 'completed')}
-            className={`p-3.5 rounded-2xl border transition-all cursor-pointer shadow-xs ${
-              filterTime === 'completed' 
-                ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-400/30' 
-                : 'bg-white border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/20'
-            }`}
-          >
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Đã xong</span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            </div>
-            <div className="text-2xl font-black text-emerald-700">{metrics.completed}</div>
-            <p className="text-[10px] text-slate-500 mt-1">{metrics.completionRate}% hoàn thành</p>
-          </div>
-
-          {/* Card: Progress Overall */}
-          <div className="p-3.5 rounded-2xl bg-gradient-to-br from-slate-900 to-[#0B2545] text-white shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Tiến độ vi mô</span>
-              <TrendingUp className="w-4 h-4 text-[#FFD700]" />
-            </div>
-            <div className="my-1">
-              <div className="flex justify-between items-baseline mb-1">
-                <span className="text-xl font-black text-[#FFD700]">{metrics.completionRate}%</span>
-                <span className="text-[11px] text-slate-300">{metrics.completed}/{metrics.total} việc</span>
-              </div>
-              <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden">
-                <div 
-                  className="bg-gradient-to-r from-emerald-400 to-[#FFD700] h-full rounded-full transition-all duration-500" 
-                  style={{ width: `${metrics.completionRate}%` }} 
-                />
-              </div>
-            </div>
-            <p className="text-[9px] text-slate-400">Toàn bộ 59 nhiệm vụ</p>
-          </div>
-
         </div>
 
         {/* 3. Filter Bar & View Mode Toggle */}
@@ -617,17 +618,18 @@ export const ChecklistReminderHub: React.FC<ChecklistReminderHubProps> = ({
               ))}
             </select>
 
-            {/* Thời hạn */}
+            {/* Thời hạn / Trạng thái */}
             <select
               value={filterTime}
               onChange={(e) => setFilterTime(e.target.value as any)}
               className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 font-medium focus:outline-hidden focus:border-blue-600"
             >
               <option value="all">Tất cả thời hạn</option>
-              <option value="overdue">Quá hạn</option>
-              <option value="today">Hạn hôm nay</option>
-              <option value="dueSoon">Trong 3 ngày tới</option>
               <option value="completed">Đã hoàn thành</option>
+              <option value="inProgress">Đang thực hiện</option>
+              <option value="dueSoon">Sắp đến hạn</option>
+              <option value="today">Hạn hôm nay</option>
+              <option value="overdue">Quá hạn</option>
             </select>
 
             {/* Đánh giá chất lượng */}
