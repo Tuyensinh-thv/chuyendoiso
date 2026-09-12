@@ -5,7 +5,6 @@ import {
   Table, 
   Calendar as CalendarIcon, 
   BarChart3, 
-  Sparkles, 
   AlertCircle, 
   Clock, 
   CheckCircle2, 
@@ -18,7 +17,6 @@ import {
   RotateCcw,
   Inbox,
   UserCheck,
-  Send,
   ShieldCheck,
   GitBranch,
   Layers,
@@ -28,18 +26,22 @@ import {
   ChevronRight,
   History,
   MessageSquareQuote,
-  Users
+  Users,
+  Sparkles,
+  Send
 } from 'lucide-react';
-import { CustomCategory, UserAccount, BaseWeworkPerspective } from '../types';
+import { CustomCategory, UserAccount, BaseWeworkPerspective, MenuSettings } from '../types';
 import { PLAN_GROUPS } from '../data/initialData';
 import { getRolePermissions } from '../utils/permissions';
+
+import { ActiveView } from '../context/UIContext';
 
 interface SidebarProps {
   isOpen: boolean;
   onToggleCollapse?: () => void;
   onLogout?: () => void;
-  activeView: 'kanban' | 'table' | 'gantt' | 'calendar' | 'stats';
-  onSelectView: (view: 'kanban' | 'table' | 'gantt' | 'calendar' | 'stats') => void;
+  activeView: ActiveView;
+  onSelectView: (view: ActiveView) => void;
   onOpenNewTaskModal: () => void;
   onOpenDailyReminder: () => void;
   onOpenDriveManager: () => void;
@@ -59,9 +61,10 @@ interface SidebarProps {
   dueSoonCount: number;
   completedCount: number;
   myUnitCount: number;
-  myDelegatedCount: number;
   pendingApprovalCount: number;
-  aiRecommendedCount: number;
+  myDelegatedCount?: number;
+  aiRecommendedCount?: number;
+  menuSettings?: MenuSettings;
   // Active Filter States
   selectedPerspective: BaseWeworkPerspective;
   onSelectPerspective: (perspective: BaseWeworkPerspective) => void;
@@ -100,9 +103,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   dueSoonCount,
   completedCount,
   myUnitCount,
-  myDelegatedCount,
   pendingApprovalCount,
-  aiRecommendedCount,
+  myDelegatedCount = 0,
+  aiRecommendedCount = 0,
+  menuSettings,
   selectedPerspective,
   onSelectPerspective,
   selectedPlanGroup,
@@ -392,26 +396,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
               </button>
 
-              {/* 5. Gợi ý AI ưu tiên */}
-              <button
-                onClick={() => { onSelectPerspective('ai_suggested'); closeOnMobile(); }}
-                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
-                  selectedPerspective === 'ai_suggested'
-                    ? 'bg-amber-950/40 text-amber-300 font-semibold border border-amber-900/50'
-                    : 'text-slate-300 hover:bg-slate-850 hover:text-white'
-                }`}
-                title="Gợi ý AI ưu tiên cho Lãnh đạo"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Sparkles className="w-4 h-4 shrink-0 text-amber-400" />
-                  {isOpen && <span className="truncate">AI Gợi ý trọng tâm</span>}
-                </div>
-                {isOpen && aiRecommendedCount > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-amber-900/80 text-amber-100">
-                    {aiRecommendedCount}
-                  </span>
-                )}
-              </button>
+              {/* 5. Gợi ý AI ưu tiên (Có thể Bật/Tắt trong Cài đặt) */}
+              {menuSettings?.showAiSuggested && (
+                <button
+                  onClick={() => { onSelectPerspective('ai_suggested'); closeOnMobile(); }}
+                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
+                    selectedPerspective === 'ai_suggested'
+                      ? 'bg-amber-950/40 text-amber-300 font-semibold border border-amber-900/50'
+                      : 'text-slate-300 hover:bg-slate-850 hover:text-white'
+                  }`}
+                  title="Gợi ý AI ưu tiên cho Lãnh đạo"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Sparkles className="w-4 h-4 shrink-0 text-amber-400" />
+                    {isOpen && <span className="truncate">AI Gợi ý trọng tâm</span>}
+                  </div>
+                  {isOpen && aiRecommendedCount > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-amber-900/80 text-amber-100">
+                      {aiRecommendedCount}
+                    </span>
+                  )}
+                </button>
+              )}
             </>
           ) : isUnit ? (
             /* Đơn vị thực thi */
@@ -481,26 +487,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
               </button>
 
-              {/* 4. AI Gợi ý ưu tiên */}
-              <button
-                onClick={() => { onSelectPerspective('ai_suggested'); closeOnMobile(); }}
-                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
-                  selectedPerspective === 'ai_suggested'
-                    ? 'bg-amber-950/40 text-amber-300 font-semibold border border-amber-900/50'
-                    : 'text-slate-300 hover:bg-slate-850 hover:text-white'
-                }`}
-                title="Gợi ý AI ưu tiên"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Sparkles className="w-4 h-4 shrink-0 text-amber-400" />
-                  {isOpen && <span className="truncate">AI Gợi ý ưu tiên</span>}
-                </div>
-                {isOpen && aiRecommendedCount > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-amber-900/80 text-amber-100">
-                    {aiRecommendedCount}
-                  </span>
-                )}
-              </button>
+              {/* 4. AI Gợi ý ưu tiên (Có thể Bật/Tắt trong Cài đặt) */}
+              {menuSettings?.showAiSuggested && (
+                <button
+                  onClick={() => { onSelectPerspective('ai_suggested'); closeOnMobile(); }}
+                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
+                    selectedPerspective === 'ai_suggested'
+                      ? 'bg-amber-950/40 text-amber-300 font-semibold border border-amber-900/50'
+                      : 'text-slate-300 hover:bg-slate-850 hover:text-white'
+                  }`}
+                  title="Gợi ý AI ưu tiên"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Sparkles className="w-4 h-4 shrink-0 text-amber-400" />
+                    {isOpen && <span className="truncate">AI Gợi ý ưu tiên</span>}
+                  </div>
+                  {isOpen && aiRecommendedCount > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-amber-900/80 text-amber-100">
+                      {aiRecommendedCount}
+                    </span>
+                  )}
+                </button>
+              )}
             </>
           ) : (
             /* Admin & Tổ Chuyên trách */
@@ -568,8 +576,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
               </button>
 
-              {/* 4. Tôi giao việc */}
-              {myDelegatedCount > 0 && (
+              {/* 4. Tôi giao việc (Có thể Bật/Tắt trong Cài đặt) */}
+              {menuSettings?.showMyDelegated && myDelegatedCount > 0 && (
                 <button
                   onClick={() => { onSelectPerspective('my_delegated'); closeOnMobile(); }}
                   className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
@@ -591,26 +599,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </button>
               )}
 
-              {/* 5. Gợi ý AI ưu tiên */}
-              <button
-                onClick={() => { onSelectPerspective('ai_suggested'); closeOnMobile(); }}
-                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
-                  selectedPerspective === 'ai_suggested'
-                    ? 'bg-amber-950/40 text-amber-300 font-semibold border border-amber-900/50'
-                    : 'text-slate-300 hover:bg-slate-850 hover:text-white'
-                }`}
-                title="Gợi ý AI ưu tiên"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <Sparkles className="w-4 h-4 shrink-0 text-amber-400" />
-                  {isOpen && <span className="truncate">AI Gợi ý ưu tiên</span>}
-                </div>
-                {isOpen && aiRecommendedCount > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-amber-900/80 text-amber-100">
-                    {aiRecommendedCount}
-                  </span>
-                )}
-              </button>
+              {/* 5. Gợi ý AI ưu tiên (Có thể Bật/Tắt trong Cài đặt) */}
+              {menuSettings?.showAiSuggested && (
+                <button
+                  onClick={() => { onSelectPerspective('ai_suggested'); closeOnMobile(); }}
+                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all font-medium cursor-pointer ${
+                    selectedPerspective === 'ai_suggested'
+                      ? 'bg-amber-950/40 text-amber-300 font-semibold border border-amber-900/50'
+                      : 'text-slate-300 hover:bg-slate-850 hover:text-white'
+                  }`}
+                  title="Gợi ý AI ưu tiên"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Sparkles className="w-4 h-4 shrink-0 text-amber-400" />
+                    {isOpen && <span className="truncate">AI Gợi ý ưu tiên</span>}
+                  </div>
+                  {isOpen && aiRecommendedCount > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-amber-900/80 text-amber-100">
+                      {aiRecommendedCount}
+                    </span>
+                  )}
+                </button>
+              )}
             </>
           )}
         </div>
@@ -790,12 +800,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {perms.canViewAuditLogs && (
           <button
-            onClick={() => { onOpenAuditLogs(); closeOnMobile(); }}
-            className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors text-xs cursor-pointer font-medium"
+            onClick={() => { onSelectView('auditLogs'); closeOnMobile(); }}
+            className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-colors text-xs cursor-pointer font-medium ${
+              activeView === 'auditLogs'
+                ? 'bg-white/20 text-white font-semibold shadow-2xs'
+                : 'text-slate-300 hover:text-white hover:bg-white/10'
+            }`}
             title="Xem lịch sử thao tác và nhật ký hoạt động hệ thống"
           >
-            <History className="w-4 h-4 shrink-0 text-slate-400" />
-            {isOpen && <span className="truncate">Nhật ký hoạt động (Audit)</span>}
+            <History className={`w-4 h-4 shrink-0 ${activeView === 'auditLogs' ? 'text-white' : 'text-slate-400'}`} />
+            {isOpen && <span className="truncate">Nhật ký hệ thống (Audit)</span>}
           </button>
         )}
 
@@ -825,10 +839,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={() => { onOpenEthicalAiSettings(); closeOnMobile(); }}
             className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors text-xs cursor-pointer font-medium"
-            title="Cài đặt AI & Quy tắc đạo đức"
+            title="Cài đặt hệ thống, cấu hình menu & quy tắc AI"
           >
             <Sliders className="w-4 h-4 shrink-0 text-slate-400" />
-            {isOpen && <span className="truncate">Cài đặt AI & Đạo đức</span>}
+            {isOpen && <span className="truncate">Cài đặt Hệ thống & AI</span>}
           </button>
         )}
 

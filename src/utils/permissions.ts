@@ -157,3 +157,22 @@ export function isTaskRelatedToUnit(task: TaskNQ57, unitName?: string): boolean 
 
   return false;
 }
+
+/**
+ * Map UserRole + donVi to a human-readable actor role label for audit logs.
+ * Eliminates the repeated ternary chains across the codebase.
+ */
+export function getActorRole(vaiTro: string, donVi?: string): string {
+  switch (vaiTro) {
+    case 'Admin':
+      return 'Quản trị viên';
+    case 'Lanh_Dao':
+      return 'Ban Giám hiệu';
+    case 'To_Chuyen_Trach':
+      return 'Tổ CĐS';
+    case 'Don_Vi':
+      return donVi || 'Đơn vị';
+    default:
+      return vaiTro;
+  }
+}

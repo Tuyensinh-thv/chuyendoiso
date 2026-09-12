@@ -14,10 +14,20 @@ export type BaseWeworkPerspective =
   | 'overdue_urgent' 
   | 'ai_suggested';
 
+export type ChecklistEvaluationStatus = 'Chua_Danh_Gia' | 'Dat' | 'Yeu_Cau_Sua' | 'Can_Bo_Sung';
+
 export interface TaskChecklistItem {
   id: string;
   title: string;
   completed: boolean;
+  assignee?: string;
+  assigneeEmail?: string;
+  assigneeRole?: string;
+  dueDate?: string;
+  evaluationStatus?: ChecklistEvaluationStatus;
+  evaluationNote?: string;
+  evaluator?: string;
+  evaluatedAt?: string;
 }
 
 export interface TaskDiscussionComment {
@@ -38,6 +48,11 @@ export interface CustomCategory {
   description?: string;
 }
 
+export interface MenuSettings {
+  showMyDelegated: boolean;
+  showAiSuggested: boolean;
+}
+
 export interface UserAccount {
   email: string;
   hoTen: string;
@@ -48,12 +63,26 @@ export interface UserAccount {
   trangThai?: 'Hoạt động' | 'Tạm khóa';
 }
 
+export type AuditLogAction = 
+  | 'CREATE' 
+  | 'UPDATE' 
+  | 'DELETE' 
+  | 'APPROVE' 
+  | 'REJECT' 
+  | 'SYNC' 
+  | 'LOGIN' 
+  | 'LOGOUT' 
+  | 'SECURITY';
+
+export type AuditLogCategory = 'DATA' | 'SYSTEM';
+
 export interface AuditLogEntry {
   id: string;
   timestamp: string;
   actor: string;
   actorRole: string;
-  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'APPROVE' | 'REJECT' | 'SYNC';
+  action: AuditLogAction;
+  category?: AuditLogCategory;
   taskId?: string;
   taskTitle?: string;
   details: string;

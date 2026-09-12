@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import { TaskNQ57, UserAccount, CustomCategory, AuditLogEntry, TaskChecklistItem } from '../types';
+import { TaskNQ57, UserAccount, CustomCategory, AuditLogEntry, TaskChecklistItem, MenuSettings } from '../types';
 
 /**
  * Maps database row (snake_case) to TaskNQ57 (camelCase)
@@ -381,4 +381,50 @@ export function subscribeToAuditLogs(onUpdate: () => void) {
       }
     )
     .subscribe();
+}
+
+// ==================== SYSTEM SETTINGS (MENU TOGGLES) API ====================
+
+export async function fetchMenuSettingsFromSupabase(): Promise<MenuSettings | null> {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'menu_visibility')
+      .maybeSingle();
+
+    if (error) {
+      console.warn('System settings table or key may not exist yet in Supabase:', error.message);
+      return null;
+    }
+
+    if (data && data.value) {
+      return typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+    }
+    return null;
+  } catch (err) {
+    console.warn('Failed to fetch menu settings from Supabase:', err);
+    return null;
+  }
+}
+
+export async function saveMenuSettingsToSupabase(settings: MenuSettings): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('system_settings')
+      .upsert({
+        key: 'menu_visibility',
+        value: settings,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'key' });
+
+    if (error) {
+      console.warn('Error saving menu settings to Supabase (using local fallback):', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Failed to save menu settings to Supabase:', err);
+    return false;
+  }
 }

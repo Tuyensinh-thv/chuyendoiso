@@ -1,10 +1,11 @@
-import { TaskNQ57, UserAccount, CustomCategory, AuditLogEntry } from '../types';
+import { TaskNQ57, UserAccount, CustomCategory, AuditLogEntry, MenuSettings } from '../types';
 import { INITIAL_TASKS, INITIAL_ACCOUNTS } from '../data/initialData';
 import { 
   saveAllTasksToSupabase, 
   saveAccountToSupabase, 
   saveCategoriesToSupabase, 
-  addAuditLogToSupabase 
+  addAuditLogToSupabase,
+  saveMenuSettingsToSupabase
 } from './supabaseService';
 
 export type { AuditLogEntry };
@@ -194,11 +195,6 @@ export function loadCurrentUser(): UserAccount {
     const data = localStorage.getItem(CURRENT_USER_KEY);
     if (data) {
       const user = JSON.parse(data);
-      if (user.email === 'kiennt@hvu.edu.vn') {
-        user.vaiTro = 'Admin';
-        user.hoTen = 'Nguyễn Trung Kiên (Admin)';
-        user.donVi = 'Khoa KT-CN / Ban Quản trị Hệ thống';
-      }
       return user;
     }
   } catch (err) {
@@ -389,3 +385,75 @@ export function addAuditLog(entry: Omit<AuditLogEntry, 'id' | 'timestamp'>): Aud
   });
   return newEntry;
 }
+
+export function exportAuditLogsToCSV(logs: AuditLogEntry[]): void {
+  const headers = [
+    'Mã Log',
+    'Thời gian',
+    'Người thực hiện',
+    'Vai trò',
+    'Hành động',
+    'Mã nhiệm vụ',
+    'Tên nhiệm vụ',
+    'Chi tiết hoạt động',
+  ];
+
+  const escapeCSV = (str: string | number | undefined) => {
+    if (str === undefined || str === null) return '""';
+    const s = String(str).replace(/"/g, '""');
+    return `"${s}"`;
+  };
+
+  const rows = logs.map((l) => [
+    escapeCSV(l.id),
+    escapeCSV(l.timestamp),
+    escapeCSV(l.actor),
+    escapeCSV(l.actorRole),
+    escapeCSV(l.action),
+    escapeCSV(l.taskId || ''),
+    escapeCSV(l.taskTitle || ''),
+    escapeCSV(l.details),
+  ]);
+
+  const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `Nhat_Ky_Hoat_Dong_NQ57_${new Date().toISOString().slice(0, 10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+const MENU_SETTINGS_KEY = 'hvu_nq57_menu_settings_v1';
+
+export const DEFAULT_MENU_SETTINGS: MenuSettings = {
+  showMyDelegated: false,
+  showAiSuggested: false,
+};
+
+export function loadMenuSettingsFromStorage(): MenuSettings {
+  try {
+    const data = localStorage.getItem(MENU_SETTINGS_KEY);
+    if (data) {
+      return { ...DEFAULT_MENU_SETTINGS, ...JSON.parse(data) };
+    }
+  } catch (err) {
+    console.error('Failed to load menu settings from storage', err);
+  }
+  return DEFAULT_MENU_SETTINGS;
+}
+
+export function saveMenuSettingsToStorage(settings: MenuSettings): void {
+  try {
+    localStorage.setItem(MENU_SETTINGS_KEY, JSON.stringify(settings));
+  } catch (err) {
+    console.error('Failed to save menu settings to storage', err);
+  }
+  saveMenuSettingsToSupabase(settings).catch((err) => {
+    console.warn('Supabase background save menu settings error:', err);
+  });
+}
+

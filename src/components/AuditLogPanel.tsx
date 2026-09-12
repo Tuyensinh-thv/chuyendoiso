@@ -12,9 +12,10 @@ import {
   ShieldCheck, 
   Trash2, 
   PlusCircle,
-  FileText
+  FileText,
+  Download
 } from 'lucide-react';
-import { AuditLogEntry, loadAuditLogsFromStorage } from '../utils/storage';
+import { AuditLogEntry, loadAuditLogsFromStorage, exportAuditLogsToCSV } from '../utils/storage';
 import { TaskNQ57 } from '../types';
 
 interface AuditLogPanelProps {
@@ -122,6 +123,14 @@ export const AuditLogPanel: React.FC<AuditLogPanelProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => exportAuditLogsToCSV(filteredLogs)}
+              title="Xuất nhật ký hoạt động ra file Excel (.csv)"
+              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="hidden sm:inline">Xuất Excel</span>
+            </button>
             {onRefresh && (
               <button
                 onClick={onRefresh}

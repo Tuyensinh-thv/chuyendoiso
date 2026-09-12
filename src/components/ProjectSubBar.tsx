@@ -14,9 +14,11 @@ import {
 } from 'lucide-react';
 import { DEPARTMENTS } from '../data/initialData';
 
+import { ActiveView } from '../context/UIContext';
+
 interface ProjectSubBarProps {
-  activeView?: 'kanban' | 'table' | 'gantt' | 'calendar' | 'stats';
-  onSelectView?: (view: 'kanban' | 'table' | 'gantt' | 'calendar' | 'stats') => void;
+  activeView?: ActiveView;
+  onSelectView?: (view: ActiveView) => void;
   selectedDept: string;
   onSelectDept: (dept: string) => void;
   selectedStatus: string;

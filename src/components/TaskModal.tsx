@@ -23,7 +23,8 @@ import {
   Send,
   MessageSquare,
   ShieldCheck,
-  RefreshCw
+  RefreshCw,
+  Award
 } from 'lucide-react';
 import { 
   TaskNQ57, 
@@ -33,9 +34,10 @@ import {
   CustomCategory,
   TaskChecklistItem,
   TaskApprovalStatus,
-  TaskDiscussionComment
+  TaskDiscussionComment,
+  ChecklistEvaluationStatus
 } from '../types';
-import { formatVietnameseDate, formatDeadlineBadge, formatFileSize } from '../utils/dateUtils';
+import { formatVietnameseDate, formatDeadlineBadge, formatFileSize, getDaysDifference } from '../utils/dateUtils';
 import { getPriorityMeta, getCategoryBadgeClass } from '../utils/storage';
 import { DEPARTMENTS } from '../data/initialData';
 import { getRolePermissions, isTaskRelatedToUnit } from '../utils/permissions';
@@ -51,7 +53,7 @@ interface TaskModalProps {
   task: TaskNQ57 | null;
   isOpen: boolean;
   onClose: () => void;
-  onSaveTask: (updatedTask: TaskNQ57) => void;
+  onSaveTask: (updatedTask: TaskNQ57) => Promise<void> | void;
   onDeleteTask?: (taskId: string) => void;
   onApproveTask?: (taskId: string, status?: TaskApprovalStatus) => void;
   currentUser: UserAccount;
@@ -78,8 +80,14 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const [newDirective, setNewDirective] = useState('');
   const [newComment, setNewComment] = useState('');
   const [newChecklistTitle, setNewChecklistTitle] = useState('');
+  const [newChecklistAssignee, setNewChecklistAssignee] = useState('');
+  const [newChecklistDueDate, setNewChecklistDueDate] = useState('');
+  const [evaluatingChecklistId, setEvaluatingChecklistId] = useState<string | null>(null);
+  const [evalStatus, setEvalStatus] = useState<ChecklistEvaluationStatus>('Dat');
+  const [evalNote, setEvalNote] = useState('');
   const [externalDriveUrl, setExternalDriveUrl] = useState(task.linkMinhChung || '');
   const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [selectedDocType, setSelectedDocType] = useState<DocumentType>('BC');
   const [rightTab, setRightTab] = useState<'checklist' | 'comments'>('checklist');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -202,12 +210,39 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     }));
   };
 
-  // Base Wework Checklist operations
+  // Accounts grouping for checklist assignee selection
+  const toChuyenTrachAccounts = accounts.filter(
+    (a) => a.vaiTro === 'To_Chuyen_Trach' || a.donVi?.toLowerCase().includes('chuyển đổi số') || a.donVi?.toLowerCase().includes('tổ cđs')
+  );
+
+  const relatedUnitAccounts = accounts.filter(
+    (a) =>
+      a.vaiTro !== 'To_Chuyen_Trach' &&
+      !a.donVi?.toLowerCase().includes('chuyển đổi số') &&
+      !a.donVi?.toLowerCase().includes('tổ cđs') &&
+      isTaskRelatedToUnit(formState, a.donVi)
+  );
+
+  const otherAccounts = accounts.filter(
+    (a) =>
+      !toChuyenTrachAccounts.some((tc) => tc.email === a.email) &&
+      !relatedUnitAccounts.some((ru) => ru.email === a.email)
+  );
+
+  // Checklist operations
   const handleToggleChecklist = (id: string) => {
     setFormState((prev) => {
-      const updatedList = (prev.checklist || []).map((item) => 
-        item.id === id ? { ...item, completed: !item.completed } : item
-      );
+      const updatedList = (prev.checklist || []).map((item) => {
+        if (item.id !== id) return item;
+        const nextCompleted = !item.completed;
+        return {
+          ...item,
+          completed: nextCompleted,
+          evaluationStatus: nextCompleted 
+            ? (item.evaluationStatus && item.evaluationStatus !== 'Chua_Danh_Gia' ? item.evaluationStatus : 'Dat')
+            : (item.evaluationStatus === 'Dat' ? 'Chua_Danh_Gia' : item.evaluationStatus),
+        };
+      });
       return {
         ...prev,
         checklist: updatedList,
@@ -218,10 +253,16 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
   const handleAddChecklistItem = () => {
     if (!newChecklistTitle.trim()) return;
+    const selectedAcc = accounts.find((a) => a.email === newChecklistAssignee || a.hoTen === newChecklistAssignee);
     const newItem: TaskChecklistItem = {
       id: 'cl_' + Date.now(),
       title: newChecklistTitle.trim(),
       completed: false,
+      assignee: selectedAcc ? selectedAcc.hoTen : (newChecklistAssignee.trim() || undefined),
+      assigneeEmail: selectedAcc?.email,
+      assigneeRole: selectedAcc ? (selectedAcc.vaiTro === 'To_Chuyen_Trach' ? 'Tổ CĐS' : selectedAcc.donVi) : undefined,
+      dueDate: newChecklistDueDate || undefined,
+      evaluationStatus: 'Chua_Danh_Gia',
     };
     setFormState((prev) => ({
       ...prev,
@@ -229,6 +270,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       ngayCapNhat: new Date().toISOString(),
     }));
     setNewChecklistTitle('');
+    setNewChecklistAssignee('');
+    setNewChecklistDueDate('');
   };
 
   const handleRemoveChecklistItem = (id: string) => {
@@ -239,10 +282,39 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     }));
   };
 
+  const handleOpenEvaluation = (item: TaskChecklistItem) => {
+    setEvaluatingChecklistId(item.id);
+    setEvalStatus(item.evaluationStatus && item.evaluationStatus !== 'Chua_Danh_Gia' ? item.evaluationStatus : 'Dat');
+    setEvalNote(item.evaluationNote || '');
+  };
+
+  const handleSaveEvaluation = (checklistId: string) => {
+    setFormState((prev) => {
+      const updatedList = (prev.checklist || []).map((item) => {
+        if (item.id !== checklistId) return item;
+        const isApproved = evalStatus === 'Dat';
+        return {
+          ...item,
+          evaluationStatus: evalStatus,
+          evaluationNote: evalNote.trim(),
+          evaluator: currentUser.hoTen,
+          evaluatedAt: new Date().toLocaleDateString('vi-VN'),
+          completed: isApproved ? true : item.completed,
+        };
+      });
+      return {
+        ...prev,
+        checklist: updatedList,
+        ngayCapNhat: new Date().toISOString(),
+      };
+    });
+    setEvaluatingChecklistId(null);
+  };
+
   const handleSyncProgressFromChecklist = () => {
     const list = formState.checklist || [];
     if (list.length === 0) return;
-    const completedCount = list.filter((item) => item.completed).length;
+    const completedCount = list.filter((item) => item.completed || item.evaluationStatus === 'Dat').length;
     const calcProgress = Math.round((completedCount / list.length) * 100);
     setFormState((prev) => ({
       ...prev,
@@ -251,6 +323,59 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       approvalStatus: calcProgress === 100 && prev.approvalStatus === 'Chua_Nop' ? 'Cho_Duyet' : prev.approvalStatus,
       ngayCapNhat: new Date().toISOString(),
     }));
+  };
+
+  const getChecklistDueDateBadge = (dueDate?: string) => {
+    if (!dueDate) return null;
+    const diff = getDaysDifference(dueDate);
+    if (diff < 0) {
+      return {
+        label: `Trễ ${Math.abs(diff)} ngày (${formatVietnameseDate(dueDate)})`,
+        className: 'bg-rose-50 text-rose-700 border-rose-200 font-semibold',
+      };
+    }
+    if (diff === 0) {
+      return {
+        label: `Hôm nay (${formatVietnameseDate(dueDate)})`,
+        className: 'bg-amber-100 text-amber-900 border-amber-300 font-bold animate-pulse',
+      };
+    }
+    if (diff <= 3) {
+      return {
+        label: `Còn ${diff} ngày (${formatVietnameseDate(dueDate)})`,
+        className: 'bg-amber-50 text-amber-700 border-amber-200 font-medium',
+      };
+    }
+    return {
+      label: formatVietnameseDate(dueDate),
+      className: 'bg-slate-50 text-slate-600 border-slate-200',
+    };
+  };
+
+  const getEvaluationBadge = (status?: ChecklistEvaluationStatus) => {
+    switch (status) {
+      case 'Dat':
+        return {
+          label: 'Đạt',
+          className: 'bg-emerald-50 text-emerald-700 border-emerald-200 font-bold',
+        };
+      case 'Yeu_Cau_Sua':
+        return {
+          label: 'Yêu cầu sửa',
+          className: 'bg-rose-50 text-rose-700 border-rose-200 font-bold',
+        };
+      case 'Can_Bo_Sung':
+        return {
+          label: 'Cần bổ sung MC',
+          className: 'bg-amber-50 text-amber-800 border-amber-200 font-bold',
+        };
+      case 'Chua_Danh_Gia':
+      default:
+        return {
+          label: 'Chưa đánh giá',
+          className: 'bg-slate-100 text-slate-600 border-slate-200',
+        };
+    }
   };
 
   // Base Wework Discussion / Comments
@@ -303,53 +428,67 @@ export const TaskModal: React.FC<TaskModalProps> = ({
     setNewDirective('');
   };
 
-  const handleSave = () => {
-    let currentChecklist = [...(formState.checklist || [])];
-    if (newChecklistTitle.trim()) {
-      currentChecklist.push({
-        id: 'cl_' + Date.now(),
-        title: newChecklistTitle.trim(),
-        completed: false,
-      });
-    }
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      let currentChecklist = [...(formState.checklist || [])];
+      if (newChecklistTitle.trim()) {
+        const selectedAcc = accounts.find((a) => a.email === newChecklistAssignee || a.hoTen === newChecklistAssignee);
+        currentChecklist.push({
+          id: 'cl_' + Date.now(),
+          title: newChecklistTitle.trim(),
+          completed: false,
+          assignee: selectedAcc ? selectedAcc.hoTen : (newChecklistAssignee.trim() || undefined),
+          assigneeEmail: selectedAcc?.email,
+          assigneeRole: selectedAcc ? (selectedAcc.vaiTro === 'To_Chuyen_Trach' ? 'Tổ CĐS' : selectedAcc.donVi) : undefined,
+          dueDate: newChecklistDueDate || undefined,
+          evaluationStatus: 'Chua_Danh_Gia',
+        });
+      }
 
-    let currentDirectives = [...(formState.directivesHistory || [])];
-    let currentYKien = formState.yKienChiDao;
-    if (newDirective.trim()) {
-      const now = new Date().toLocaleString('vi-VN');
-      const directiveEntry = {
-        id: 'dir_' + Date.now(),
-        author: currentUser.hoTen,
-        role: currentUser.vaiTro === 'Lanh_Dao' ? 'Lãnh đạo trường' : 'Tổ CĐS',
-        content: newDirective.trim(),
-        createdAt: now,
+      let currentDirectives = [...(formState.directivesHistory || [])];
+      let currentYKien = formState.yKienChiDao;
+      if (newDirective.trim()) {
+        const now = new Date().toLocaleString('vi-VN');
+        const directiveEntry = {
+          id: 'dir_' + Date.now(),
+          author: currentUser.hoTen,
+          role: currentUser.vaiTro === 'Lanh_Dao' ? 'Lãnh đạo trường' : 'Tổ CĐS',
+          content: newDirective.trim(),
+          createdAt: now,
+        };
+        currentDirectives.push(directiveEntry);
+        currentYKien = newDirective.trim();
+      }
+
+      let currentComments = [...(formState.comments || [])];
+      if (newComment.trim()) {
+        currentComments.push({
+          id: 'cmt_' + Date.now(),
+          author: currentUser.hoTen,
+          role: currentUser.vaiTro === 'Admin' ? 'Quản trị viên' : currentUser.vaiTro === 'Lanh_Dao' ? 'Lãnh đạo trường' : currentUser.vaiTro === 'To_Chuyen_Trach' ? 'Tổ CĐS' : currentUser.donVi,
+          content: newComment.trim(),
+          createdAt: new Date().toLocaleDateString('vi-VN') + ' ' + new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+        });
+      }
+
+      const updated = {
+        ...formState,
+        checklist: currentChecklist,
+        directivesHistory: currentDirectives,
+        yKienChiDao: currentYKien,
+        comments: currentComments,
+        linkMinhChung: externalDriveUrl.trim(),
+        ngayCapNhat: new Date().toISOString(),
       };
-      currentDirectives.push(directiveEntry);
-      currentYKien = newDirective.trim();
+      await onSaveTask(updated);
+      onClose();
+    } catch (err) {
+      console.error('Save task error:', err);
+      alert('Đã xảy ra lỗi khi lưu nhiệm vụ, vui lòng thử lại!');
+    } finally {
+      setIsSaving(false);
     }
-
-    let currentComments = [...(formState.comments || [])];
-    if (newComment.trim()) {
-      currentComments.push({
-        id: 'cmt_' + Date.now(),
-        author: currentUser.hoTen,
-        role: currentUser.vaiTro === 'Admin' ? 'Quản trị viên' : currentUser.vaiTro === 'Lanh_Dao' ? 'Lãnh đạo trường' : currentUser.vaiTro === 'To_Chuyen_Trach' ? 'Tổ CĐS' : currentUser.donVi,
-        content: newComment.trim(),
-        createdAt: new Date().toLocaleDateString('vi-VN') + ' ' + new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      });
-    }
-
-    const updated = {
-      ...formState,
-      checklist: currentChecklist,
-      directivesHistory: currentDirectives,
-      yKienChiDao: currentYKien,
-      comments: currentComments,
-      linkMinhChung: externalDriveUrl.trim(),
-      ngayCapNhat: new Date().toISOString(),
-    };
-    onSaveTask(updated);
-    onClose();
   };
 
   const handleDownloadSimulatedFile = (file: EvidenceFile) => {
@@ -373,7 +512,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
       onClick={onClose}
     >
       <div 
-        className="bg-white w-full max-w-5xl h-full sm:h-auto sm:max-h-[96vh] rounded-none sm:rounded-xl shadow-2xl border-0 sm:border border-zinc-300 overflow-hidden flex flex-col text-zinc-900"
+        className="bg-white w-full max-w-6xl h-full sm:h-auto sm:max-h-[96vh] rounded-none sm:rounded-xl shadow-2xl border-0 sm:border border-zinc-300 overflow-hidden flex flex-col text-zinc-900"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -439,8 +578,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         {/* Modal Body: 2-Column Grid to fit everything without scrolling */}
         <div className="p-3 sm:p-3.5 overflow-y-auto flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 text-xs">
           
-          {/* LEFT COLUMN: Mission info, deliverables, directives */}
-          <div className="lg:col-span-7 space-y-2.5">
+          {/* LEFT COLUMN: Mission info, Progress, Drive Evidence, Deliverables, Directives */}
+          <div className="lg:col-span-6 space-y-2.5">
             {/* Box 1: Assignment & Schedule */}
             <div className="border border-zinc-200 rounded-lg p-2.5 bg-zinc-50/40 space-y-2">
               {/* Row 1: Đơn vị chủ trì & Đơn vị phối hợp */}
@@ -648,7 +787,144 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               </div>
             </div>
 
-            {/* Box 2: Required Output Deliverable (NQ57) */}
+            {/* Box 2: Google Drive Evidence */}
+            <div className="border border-zinc-200 rounded-lg p-2.5 bg-zinc-50/40 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-zinc-700 uppercase tracking-wider flex items-center gap-1">
+                  <Paperclip className="w-3 h-3 text-zinc-600" />
+                  Minh chứng Drive ({(formState.filesMinhChung?.length || 0) + (externalDriveUrl.trim() ? 1 : 0)})
+                </span>
+                
+                {/* Upload Action with Document Type Selector */}
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={selectedDocType}
+                    onChange={(e) => setSelectedDocType(e.target.value as DocumentType)}
+                    className="text-[10px] font-semibold bg-white border border-zinc-300 rounded px-1.5 py-0.5 text-zinc-800 focus:outline-none"
+                    title="Chọn loại văn bản để mã hóa tên file chuẩn (BC, KH, QD, HD, MC)"
+                  >
+                    {DOCUMENT_TYPES.map((dt) => (
+                      <option key={dt.code} value={dt.code}>
+                        [{dt.code}] {dt.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="file"
+                    multiple
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    id="task-file-upload-input"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="px-2 py-0.5 text-[11px] font-semibold text-zinc-800 bg-white hover:bg-zinc-100 border border-zinc-300 rounded flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                  >
+                    <Upload className="w-3 h-3" />
+                    <span>{isUploading ? 'Đang tải...' : '+ Tải lên'}</span>
+                  </button>
+                </div>
+              </div>
+
+
+              {/* Uploaded File List + External Link item */}
+              <div className="space-y-1 max-h-28 overflow-y-auto pr-0.5">
+                {(!formState.filesMinhChung || formState.filesMinhChung.length === 0) && !externalDriveUrl.trim() ? (
+                  <p className="text-[11px] text-zinc-400 italic py-1">Chưa có tệp minh chứng tải lên.</p>
+                ) : (
+                  <>
+                    {externalDriveUrl.trim() && (
+                      <div className="flex items-center justify-between p-1.5 rounded border border-blue-200 bg-blue-50/50 text-xs">
+                        <div className="flex items-center gap-1.5 min-w-0 pr-1">
+                          <span className="text-[9px] font-bold px-1 py-0.2 rounded border font-mono shrink-0 bg-blue-100 text-blue-800 border-blue-200">
+                            LINK
+                          </span>
+                          <span className="text-[11px] font-medium text-blue-900 truncate max-w-[200px]" title={externalDriveUrl}>
+                            {externalDriveUrl}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <a
+                            href={externalDriveUrl.startsWith('http') ? externalDriveUrl : `https://${externalDriveUrl}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-0.5 text-blue-600 hover:text-blue-900"
+                            title="Mở liên kết"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => setExternalDriveUrl('')}
+                            className="p-0.5 text-zinc-400 hover:text-rose-600"
+                            title="Xóa liên kết"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {formState.filesMinhChung?.map((file) => {
+                    const docBadge = file.docType || (file.name.includes('_KH_') ? 'KH' : file.name.includes('_BC_') ? 'BC' : file.name.includes('_QD_') ? 'QD' : file.name.includes('_HD_') ? 'HD' : 'MC');
+                    const badgeColor = 
+                      docBadge === 'KH' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                      docBadge === 'BC' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                      docBadge === 'QD' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                      docBadge === 'HD' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                      'bg-zinc-100 text-zinc-700 border-zinc-200';
+
+                    return (
+                      <div key={file.id} className="flex items-center justify-between p-1.5 rounded border border-zinc-200 bg-white text-xs">
+                        <div className="flex items-center gap-1.5 min-w-0 pr-1">
+                          <span className={`text-[9px] font-bold px-1 py-0.2 rounded border font-mono shrink-0 ${badgeColor}`}>
+                            {docBadge}
+                          </span>
+                          <span className="text-[11px] font-medium text-zinc-900 truncate max-w-[170px]" title={file.name}>
+                            {file.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button type="button" onClick={() => handleDownloadSimulatedFile(file)} className="p-0.5 text-zinc-600 hover:text-zinc-900" title="Tải về">
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+                          <button type="button" onClick={() => handleRemoveFile(file.id)} className="p-0.5 text-zinc-400 hover:text-rose-600" title="Xóa">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+
+              {/* Drive Link Input */}
+              <div className="flex items-center gap-1 pt-1 border-t border-zinc-200/70">
+                <input
+                  type="url"
+                  placeholder="Dán link Drive..."
+                  value={externalDriveUrl}
+                  onChange={(e) => setExternalDriveUrl(e.target.value)}
+                  className="flex-1 text-[11px] border border-zinc-300 rounded px-2 py-1 bg-white text-zinc-900 focus:outline-none focus:border-zinc-900"
+                />
+                {externalDriveUrl && (
+                  <a
+                    href={externalDriveUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-2 py-1 text-[11px] font-medium text-zinc-800 bg-white hover:bg-zinc-100 rounded border border-zinc-300 shrink-0"
+                  >
+                    Mở
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {/* Box 4: Required Output Deliverable (NQ57) */}
             <div className="border border-zinc-200 rounded-lg p-2.5 bg-zinc-50/40 space-y-1">
               <span className="text-[10px] font-bold text-zinc-700 uppercase tracking-wider block">
                 Sản phẩm đầu ra yêu cầu theo NQ57
@@ -668,7 +944,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               )}
             </div>
 
-            {/* Box 3: Leadership Directives */}
+            {/* Box 5: Leadership Directives */}
             <div className="border border-zinc-200 rounded-lg p-2.5 bg-zinc-50/40 space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-zinc-700 uppercase tracking-wider block">
@@ -712,9 +988,9 @@ export const TaskModal: React.FC<TaskModalProps> = ({
             </div>
           </div>
 
-          {/* RIGHT COLUMN: Progress, Evidence, Checklist/Discussion */}
-          <div className="lg:col-span-5 space-y-2.5">
-            {/* Box 1: Progress & Status */}
+          {/* RIGHT COLUMN: Progress on top, followed by Checklist & Add item (no gaps) */}
+          <div className="lg:col-span-6 space-y-2.5">
+            {/* Box 1 (Top): Progress & Status */}
             <div className="border border-zinc-200 rounded-lg p-2.5 bg-zinc-50/40 space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-zinc-700 uppercase tracking-wider">
@@ -778,116 +1054,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               </div>
             </div>
 
-            {/* Box 2: Google Drive Evidence */}
-            <div className="border border-zinc-200 rounded-lg p-2.5 bg-zinc-50/40 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-zinc-700 uppercase tracking-wider flex items-center gap-1">
-                  <Paperclip className="w-3 h-3 text-zinc-600" />
-                  Minh chứng Drive ({formState.filesMinhChung?.length || 0})
-                </span>
-                
-                {/* Upload Action with Document Type Selector */}
-                <div className="flex items-center gap-1.5">
-                  <select
-                    value={selectedDocType}
-                    onChange={(e) => setSelectedDocType(e.target.value as DocumentType)}
-                    className="text-[10px] font-semibold bg-white border border-zinc-300 rounded px-1.5 py-0.5 text-zinc-800 focus:outline-none"
-                    title="Chọn loại văn bản để mã hóa tên file chuẩn (BC, KH, QD, HD, MC)"
-                  >
-                    {DOCUMENT_TYPES.map((dt) => (
-                      <option key={dt.code} value={dt.code}>
-                        [{dt.code}] {dt.label}
-                      </option>
-                    ))}
-                  </select>
-
-                  <input
-                    type="file"
-                    multiple
-                    ref={fileInputRef}
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    id="task-file-upload-input"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading}
-                    className="px-2 py-0.5 text-[11px] font-semibold text-zinc-800 bg-white hover:bg-zinc-100 border border-zinc-300 rounded flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
-                  >
-                    <Upload className="w-3 h-3" />
-                    <span>{isUploading ? 'Đang tải...' : '+ Tải lên'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Subfolder location hint */}
-              <div className="text-[10px] text-zinc-500 font-mono truncate bg-white/70 px-1.5 py-0.5 rounded border border-zinc-200" title={generateTaskFolderPath(formState.id, formState.tenNhiemVu)}>
-                📁 {generateTaskFolderPath(formState.id, formState.tenNhiemVu)}
-              </div>
-
-              {/* Uploaded File List */}
-              <div className="space-y-1 max-h-28 overflow-y-auto pr-0.5">
-                {(!formState.filesMinhChung || formState.filesMinhChung.length === 0) ? (
-                  <p className="text-[11px] text-zinc-400 italic py-1">Chưa có tệp minh chứng tải lên.</p>
-                ) : (
-                  formState.filesMinhChung.map((file) => {
-                    const docBadge = file.docType || (file.name.includes('_KH_') ? 'KH' : file.name.includes('_BC_') ? 'BC' : file.name.includes('_QD_') ? 'QD' : file.name.includes('_HD_') ? 'HD' : 'MC');
-                    const badgeColor = 
-                      docBadge === 'KH' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                      docBadge === 'BC' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                      docBadge === 'QD' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                      docBadge === 'HD' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                      'bg-zinc-100 text-zinc-700 border-zinc-200';
-
-                    return (
-                      <div key={file.id} className="flex items-center justify-between p-1.5 rounded border border-zinc-200 bg-white text-xs">
-                        <div className="flex items-center gap-1.5 min-w-0 pr-1">
-                          <span className={`text-[9px] font-bold px-1 py-0.2 rounded border font-mono shrink-0 ${badgeColor}`}>
-                            {docBadge}
-                          </span>
-                          <span className="text-[11px] font-medium text-zinc-900 truncate max-w-[170px]" title={file.name}>
-                            {file.name}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button type="button" onClick={() => handleDownloadSimulatedFile(file)} className="p-0.5 text-zinc-600 hover:text-zinc-900" title="Tải về">
-                            <Download className="w-3.5 h-3.5" />
-                          </button>
-                          <button type="button" onClick={() => handleRemoveFile(file.id)} className="p-0.5 text-zinc-400 hover:text-rose-600" title="Xóa">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Drive Link Input */}
-              <div className="flex items-center gap-1 pt-1 border-t border-zinc-200/70">
-                <input
-                  type="url"
-                  placeholder="Dán link Drive..."
-                  value={externalDriveUrl}
-                  onChange={(e) => setExternalDriveUrl(e.target.value)}
-                  className="flex-1 text-[11px] border border-zinc-300 rounded px-2 py-1 bg-white text-zinc-900 focus:outline-none focus:border-zinc-900"
-                />
-                {externalDriveUrl && (
-                  <a
-                    href={externalDriveUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-2 py-1 text-[11px] font-medium text-zinc-800 bg-white hover:bg-zinc-100 rounded border border-zinc-300 shrink-0"
-                  >
-                    Mở
-                  </a>
-                )}
-              </div>
-            </div>
-
-            {/* Box 3: Tabs: [Checklist] & [Trao đổi] */}
-            <div className="border border-zinc-200 rounded-lg p-2.5 bg-zinc-50/40 space-y-1.5">
+            {/* Box 2: Tabs [Checklist] & [Trao đổi] */}
+            <div className="border border-zinc-200 rounded-lg p-2.5 sm:p-3 bg-zinc-50/40 space-y-2">
               {/* Tab Selector */}
               <div className="flex items-center justify-between border-b border-zinc-200 pb-1.5">
                 <div className="flex items-center gap-1">
@@ -930,44 +1098,246 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
               {/* Tab 1: Checklist */}
               {rightTab === 'checklist' ? (
-                <div className="space-y-1">
-                  <div className="space-y-1 max-h-28 overflow-y-auto pr-0.5">
+                <div className="space-y-2">
+                  {/* Checklist Items Container: no min-h gap */}
+                  <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
                     {(!formState.checklist || formState.checklist.length === 0) ? (
-                      <div className="text-center py-2 px-1">
-                        <p className="text-[11px] text-zinc-400 italic">Chưa có đầu việc con. Thêm bên dưới ↓</p>
+                      <div className="text-center py-3 px-2 bg-white rounded-lg border border-dashed border-zinc-300">
+                        <p className="text-xs font-semibold text-zinc-600">Chưa có đầu việc con nào</p>
+                        <p className="text-[11px] text-zinc-400 mt-0.5">Thêm việc con ở form ngay bên dưới ↓</p>
                       </div>
                     ) : (
-                      formState.checklist.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between p-1.5 rounded bg-white border border-zinc-200">
-                          <button
-                            type="button"
-                            disabled={!canEditChecklist}
-                            onClick={() => handleToggleChecklist(item.id)}
-                            className="flex items-center gap-2 text-left flex-1 cursor-pointer"
-                          >
-                            {item.completed ? (
-                              <CheckSquare className="w-3.5 h-3.5 text-zinc-900 shrink-0" />
-                            ) : (
-                              <Square className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                            )}
-                            <span className={`text-[11px] ${item.completed ? 'line-through text-zinc-400' : 'text-zinc-900 font-medium'}`}>
-                              {item.title}
-                            </span>
-                          </button>
-                          {canEditChecklist && (
-                            <button type="button" onClick={() => handleRemoveChecklistItem(item.id)} className="text-zinc-400 hover:text-rose-600 p-0.5 cursor-pointer">
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          )}
-                        </div>
-                      ))
+                      <div className="border border-zinc-200 rounded-lg bg-white overflow-hidden divide-y divide-zinc-100 shadow-2xs">
+                        {formState.checklist.map((item) => {
+                          const isBeingEvaluated = evaluatingChecklistId === item.id;
+                          const diff = item.dueDate ? getDaysDifference(item.dueDate) : null;
+
+                          return (
+                            <div
+                              key={item.id}
+                              className={`p-2 transition-colors ${
+                                item.completed ? 'bg-zinc-50/50' : 'hover:bg-zinc-50/80'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-2 text-xs">
+                                {/* Checkbox + Text (Nội dung - Tên người - Thời hạn) */}
+                                <div className="flex items-start gap-2 min-w-0 flex-1">
+                                  <button
+                                    type="button"
+                                    disabled={!canEditChecklist}
+                                    onClick={() => handleToggleChecklist(item.id)}
+                                    className="mt-0.5 shrink-0 text-zinc-400 hover:text-zinc-700 cursor-pointer"
+                                  >
+                                    {item.completed ? (
+                                      <CheckSquare className="w-4 h-4 text-emerald-600" />
+                                    ) : (
+                                      <Square className="w-4 h-4 text-zinc-400" />
+                                    )}
+                                  </button>
+
+                                  <div className="min-w-0 flex-1 leading-snug">
+                                    <span
+                                      className={`font-medium ${
+                                        item.completed
+                                          ? 'line-through text-zinc-400 font-normal'
+                                          : 'text-zinc-900'
+                                      }`}
+                                    >
+                                      {item.title}
+                                    </span>
+
+                                    {item.assignee && (
+                                      <span className={`text-[11px] ${item.completed ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                                        {' '}— <span className={`font-medium ${item.completed ? 'text-zinc-500' : 'text-zinc-700'}`}>{item.assignee}</span>
+                                      </span>
+                                    )}
+
+                                    {item.dueDate && (
+                                      <span
+                                        className={`text-[11px] ml-1 ${
+                                          item.completed
+                                            ? 'text-zinc-400'
+                                            : diff !== null && diff < 0
+                                            ? 'text-rose-600 font-semibold'
+                                            : diff === 0
+                                            ? 'text-amber-600 font-bold'
+                                            : 'text-zinc-500 font-medium'
+                                        }`}
+                                      >
+                                        — {item.completed
+                                            ? formatVietnameseDate(item.dueDate)
+                                            : diff !== null && diff < 0
+                                            ? `Trễ ${Math.abs(diff)} ngày (${formatVietnameseDate(item.dueDate)})`
+                                            : diff === 0
+                                            ? `Hôm nay (${formatVietnameseDate(item.dueDate)})`
+                                            : formatVietnameseDate(item.dueDate)}
+                                      </span>
+                                    )}
+
+                                    {/* Nhãn hoàn thành / Đánh giá */}
+                                    {item.completed ? (
+                                      <span className="ml-1.5 inline-block text-[10px] font-semibold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        {item.evaluationStatus === 'Dat' || !item.evaluationStatus || item.evaluationStatus === 'Chua_Danh_Gia'
+                                          ? 'Đã hoàn thành'
+                                          : item.evaluationStatus === 'Yeu_Cau_Sua'
+                                          ? 'Yêu cầu sửa'
+                                          : 'Cần bổ sung'}
+                                      </span>
+                                    ) : (
+                                      item.evaluationStatus && item.evaluationStatus !== 'Chua_Danh_Gia' && (
+                                        <span
+                                          className={`ml-1.5 inline-block text-[10px] font-semibold px-1.5 py-0.2 rounded border ${
+                                            item.evaluationStatus === 'Dat'
+                                              ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                                              : item.evaluationStatus === 'Yeu_Cau_Sua'
+                                              ? 'text-rose-700 bg-rose-50 border-rose-200'
+                                              : 'text-amber-800 bg-amber-50 border-amber-200'
+                                          }`}
+                                        >
+                                          {item.evaluationStatus === 'Dat'
+                                            ? 'Đạt'
+                                            : item.evaluationStatus === 'Yeu_Cau_Sua'
+                                            ? 'Yêu cầu sửa'
+                                            : 'Cần bổ sung'}
+                                        </span>
+                                      )
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Right: Action buttons (Đánh giá, Xóa) */}
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEvaluation(item)}
+                                    className={`px-1.5 py-0.5 text-[10px] font-medium rounded border cursor-pointer transition-colors ${
+                                      isBeingEvaluated
+                                        ? 'bg-zinc-900 text-white border-zinc-900'
+                                        : 'bg-zinc-50 hover:bg-zinc-100 text-zinc-600 border-zinc-200'
+                                    }`}
+                                    title="Đánh giá chất lượng thực thi"
+                                  >
+                                    Đánh giá
+                                  </button>
+
+                                  {canEditChecklist && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveChecklistItem(item.id)}
+                                      className="text-zinc-400 hover:text-rose-600 p-0.5 rounded cursor-pointer transition-colors"
+                                      title="Xóa đầu việc này"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Nhận xét đánh giá nếu có */}
+                              {item.evaluationNote && (
+                                <div className="ml-6 mt-1 text-[11px] text-zinc-600 italic flex items-start gap-1">
+                                  <MessageSquareQuote className="w-3 h-3 text-zinc-400 shrink-0 mt-0.5" />
+                                  <span>
+                                    "{item.evaluationNote}"
+                                    {item.evaluator && (
+                                      <span className="text-[10px] text-zinc-400 not-italic ml-1">
+                                        — {item.evaluator} {item.evaluatedAt ? `(${item.evaluatedAt})` : ''}
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Inline Evaluation Panel */}
+                              {isBeingEvaluated && (
+                                <div className="mt-2 p-2 rounded-lg border border-zinc-300 bg-zinc-50/90 space-y-2 animate-in fade-in duration-150">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-bold text-zinc-900 uppercase tracking-wider flex items-center gap-1">
+                                      <Award className="w-3 h-3 text-zinc-800" />
+                                      Đánh giá chất lượng thực thi
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setEvaluatingChecklistId(null)}
+                                      className="text-zinc-400 hover:text-zinc-700 text-xs cursor-pointer font-bold"
+                                    >
+                                      ✕ Đóng
+                                    </button>
+                                  </div>
+
+                                  {/* 4 Trạng thái đánh giá */}
+                                  <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">
+                                    {[
+                                      { id: 'Dat', label: 'Đạt', style: 'text-emerald-700 bg-emerald-50 border-emerald-300' },
+                                      { id: 'Yeu_Cau_Sua', label: 'Yêu cầu sửa', style: 'text-rose-700 bg-rose-50 border-rose-300' },
+                                      { id: 'Can_Bo_Sung', label: 'Cần bổ sung', style: 'text-amber-800 bg-amber-50 border-amber-300' },
+                                      { id: 'Chua_Danh_Gia', label: 'Chưa ĐG', style: 'text-slate-700 bg-slate-100 border-slate-300' },
+                                    ].map((opt) => (
+                                      <button
+                                        key={opt.id}
+                                        type="button"
+                                        onClick={() => setEvalStatus(opt.id as ChecklistEvaluationStatus)}
+                                        className={`py-1 px-1 rounded text-[10px] font-semibold border text-center transition-all cursor-pointer ${
+                                          evalStatus === opt.id
+                                            ? `${opt.style} ring-2 ring-zinc-900 shadow-2xs font-bold`
+                                            : 'bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-100'
+                                        }`}
+                                      >
+                                        {opt.label}
+                                      </button>
+                                    ))}
+                                  </div>
+
+                                  {/* Nhận xét đánh giá */}
+                                  <div>
+                                    <textarea
+                                      value={evalNote}
+                                      onChange={(e) => setEvalNote(e.target.value)}
+                                      rows={2}
+                                      placeholder="Nhập nhận xét chất lượng, lý do yêu cầu sửa đổi..."
+                                      className="w-full text-xs p-1.5 rounded border border-zinc-300 bg-white text-zinc-900 focus:outline-none focus:border-zinc-900"
+                                    />
+                                  </div>
+
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => setEvaluatingChecklistId(null)}
+                                      className="px-2 py-1 text-xs text-zinc-600 hover:text-zinc-900 rounded cursor-pointer"
+                                    >
+                                      Hủy
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSaveEvaluation(item.id)}
+                                      className="px-2.5 py-1 text-xs font-semibold text-white bg-zinc-900 hover:bg-zinc-800 rounded cursor-pointer shadow-2xs"
+                                    >
+                                      Lưu đánh giá
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
+
+                  {/* Form thêm đầu việc con */}
                   {canEditChecklist && (
-                    <div className="flex items-center gap-1 pt-1">
+                    <div className="pt-2 border-t border-zinc-200 bg-white p-2.5 rounded-lg border border-zinc-200 space-y-2 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-zinc-700 uppercase tracking-wider">
+                          + Thêm đầu việc con mới
+                        </span>
+                        <span className="text-[10px] text-zinc-400">Thời hạn tùy chọn (không bắt buộc)</span>
+                      </div>
+
+                      {/* Row 1: Title */}
                       <input
                         type="text"
-                        placeholder="+ Thêm đầu việc con (Enter)..."
+                        placeholder="Nội dung đầu việc con (vd: Soạn thảo dự thảo, Lấy ý kiến các phòng...)"
                         value={newChecklistTitle}
                         onChange={(e) => setNewChecklistTitle(e.target.value)}
                         onKeyDown={(e) => {
@@ -976,23 +1346,83 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                             handleAddChecklistItem();
                           }
                         }}
-                        className="flex-1 text-[11px] border border-zinc-300 rounded px-2 py-1 bg-white text-zinc-900 focus:outline-none focus:border-zinc-900"
+                        className="w-full text-xs border border-zinc-300 rounded px-2.5 py-1.5 bg-white text-zinc-900 focus:outline-none focus:border-zinc-900"
                       />
-                      <button
-                        type="button"
-                        onClick={handleAddChecklistItem}
-                        disabled={!newChecklistTitle.trim()}
-                        className="px-2 py-1 text-[11px] font-semibold text-white bg-zinc-900 hover:bg-zinc-800 rounded disabled:opacity-40 shrink-0 cursor-pointer"
-                      >
-                        Thêm
-                      </button>
+
+                      {/* Row 2: Assignee + Due Date */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-semibold text-zinc-600 block mb-0.5">
+                            Người phụ trách:
+                          </label>
+                          <select
+                            value={newChecklistAssignee}
+                            onChange={(e) => setNewChecklistAssignee(e.target.value)}
+                            className="w-full text-xs border border-zinc-300 rounded px-2 py-1 bg-white text-zinc-900 focus:outline-none focus:border-zinc-900"
+                          >
+                            <option value="">-- Tùy chọn người thực hiện --</option>
+                            {toChuyenTrachAccounts.length > 0 && (
+                              <optgroup label="⭐ Tổ Chuyên trách CĐS">
+                                {toChuyenTrachAccounts.map((acc) => (
+                                  <option key={acc.email} value={acc.email}>
+                                    {acc.hoTen} (Tổ CĐS)
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
+                            {relatedUnitAccounts.length > 0 && (
+                              <optgroup label="🏢 Đơn vị chủ trì / phối hợp">
+                                {relatedUnitAccounts.map((acc) => (
+                                  <option key={acc.email} value={acc.email}>
+                                    {acc.hoTen} ({acc.donVi})
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
+                            {otherAccounts.length > 0 && (
+                              <optgroup label="👥 Cán bộ / Giảng viên khác">
+                                {otherAccounts.map((acc) => (
+                                  <option key={acc.email} value={acc.email}>
+                                    {acc.hoTen} ({acc.donVi})
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-semibold text-zinc-600 block mb-0.5">
+                            Hạn hoàn thành (tùy chọn):
+                          </label>
+                          <input
+                            type="date"
+                            value={newChecklistDueDate}
+                            onChange={(e) => setNewChecklistDueDate(e.target.value)}
+                            className="w-full text-xs border border-zinc-300 rounded px-2 py-1 bg-white text-zinc-900 focus:outline-none focus:border-zinc-900"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Row 3: Submit button */}
+                      <div className="flex justify-end pt-0.5">
+                        <button
+                          type="button"
+                          onClick={handleAddChecklistItem}
+                          disabled={!newChecklistTitle.trim()}
+                          className="px-3 py-1.5 text-xs font-semibold text-white bg-zinc-900 hover:bg-zinc-800 rounded disabled:opacity-40 flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Thêm việc con</span>
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
               ) : (
                 /* Tab 2: Comments */
                 <div className="space-y-1.5">
-                  <div className="space-y-1 max-h-28 overflow-y-auto pr-0.5">
+                  <div className="space-y-1 max-h-[380px] overflow-y-auto pr-0.5">
                     {(formState.comments || []).length === 0 ? (
                       <p className="text-[11px] text-zinc-400 italic py-1">Chưa có trao đổi nào.</p>
                     ) : (
@@ -1097,11 +1527,17 @@ export const TaskModal: React.FC<TaskModalProps> = ({
               Hủy
             </button>
             <button
+              type="button"
               onClick={handleSave}
-              className="px-3.5 py-1.5 text-xs font-semibold text-white bg-zinc-900 hover:bg-zinc-800 rounded shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              disabled={isSaving}
+              className="px-3.5 py-1.5 text-xs font-semibold text-white bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-500 rounded shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
             >
-              <Save className="w-3.5 h-3.5" />
-              <span>Lưu thay đổi</span>
+              {isSaving ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Save className="w-3.5 h-3.5" />
+              )}
+              <span>{isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}</span>
             </button>
           </div>
         </div>
