@@ -630,127 +630,137 @@ export const ChecklistReminderHub: React.FC<ChecklistReminderHubProps> = ({
             </p>
           </div>
         ) : viewMode === 'timeline' ? (
-          
-          /* VIEW 1: TIMELINE GROUPED VIEW */
-          <div className="space-y-6">
+          /* VIEW 1: TIMELINE GROUPED VIEW (Table layout) */
+          <div className="space-y-5">
             {timelineGroups.map(group => {
               const IconComp = group.icon;
+              if (group.items.length === 0) return null;
               return (
-                <div key={group.id} className="space-y-3">
+                <div key={group.id} className="space-y-0">
                   {/* Group Header */}
-                  <div className="flex items-center justify-between pb-1 border-b border-slate-200">
-                    <div className="flex items-center gap-2">
-                      <div className={`p-1.5 rounded-lg ${group.badgeBg}`}>
-                        <IconComp className="w-4 h-4" />
-                      </div>
-                      <h2 className="text-sm font-bold text-slate-800">{group.title}</h2>
-                      <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-slate-200 text-slate-700">
-                        {group.items.length}
-                      </span>
+                  <div className="flex items-center gap-2 pb-2">
+                    <div className={`p-1.5 rounded-lg ${group.badgeBg}`}>
+                      <IconComp className="w-4 h-4" />
                     </div>
+                    <h2 className="text-sm font-bold text-slate-800">{group.title}</h2>
+                    <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-slate-200 text-slate-700">
+                      {group.items.length}
+                    </span>
                   </div>
 
-                  {/* Group Item Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {group.items.map(item => (
-                      <div
-                        key={`${item.parentTask.id}_${item.id}`}
-                        className={`p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between shadow-2xs hover:shadow-md ${
-                          item.completed 
-                            ? 'bg-emerald-50/20 border-emerald-200/80' 
-                            : group.cardBorder
-                        }`}
-                      >
-                        {/* Top: Task ID, Tag, Due Date */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <button
-                              onClick={() => onSelectTask(item.parentTask)}
-                              className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 hover:underline border border-blue-200 flex items-center gap-1 cursor-pointer"
-                              title="Bấm để mở chi tiết nhiệm vụ cha"
+                  {/* Group Table */}
+                  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] text-slate-500 font-semibold uppercase tracking-wider">
+                            <th className="py-2.5 px-3 w-10 text-center">✓</th>
+                            <th className="py-2.5 px-3 w-[72px]">Mã NV</th>
+                            <th className="py-2.5 px-3">Nội dung việc con</th>
+                            <th className="py-2.5 px-3 hidden lg:table-cell">Nhiệm vụ cha</th>
+                            <th className="py-2.5 px-3">Phụ trách</th>
+                            <th className="py-2.5 px-3 w-[90px]">Hạn chót</th>
+                            <th className="py-2.5 px-3 w-[100px]">Tình trạng</th>
+                            <th className="py-2.5 px-3 w-[80px] text-center">Đánh giá</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {group.items.map(item => (
+                            <tr
+                              key={`${item.parentTask.id}_${item.id}`}
+                              className={`hover:bg-blue-50/30 transition-colors ${
+                                item.completed ? 'bg-slate-50/40' : ''
+                              }`}
                             >
-                              <span>[{item.parentTask.id}]</span>
-                              <ExternalLink className="w-3 h-3" />
-                            </button>
+                              {/* Checkbox */}
+                              <td className="py-2.5 px-3 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={item.completed}
+                                  onChange={() => handleToggleChecklist(item)}
+                                  className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                />
+                              </td>
 
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full border ${item.dueDateStatus.badgeClass}`}>
-                              {item.dueDateStatus.label}
-                            </span>
-                          </div>
+                              {/* Task ID */}
+                              <td className="py-2.5 px-3">
+                                <button
+                                  onClick={() => onSelectTask(item.parentTask)}
+                                  className="text-[11px] font-bold text-blue-700 hover:underline cursor-pointer font-mono"
+                                  title="Mở chi tiết nhiệm vụ"
+                                >
+                                  [{item.parentTask.id}]
+                                </button>
+                              </td>
 
-                          {/* Parent Task Context Title */}
-                          <p className="text-[11px] text-slate-500 line-clamp-1" title={item.parentTask.tenNhiemVu}>
-                            {item.parentTask.tenNhiemVu}
-                          </p>
-
-                          {/* Checklist Title & Checkbox */}
-                          <div className="flex items-start gap-2.5 pt-1">
-                            <input
-                              type="checkbox"
-                              checked={item.completed}
-                              onChange={() => handleToggleChecklist(item)}
-                              className="mt-0.5 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer shrink-0"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <span className={`text-xs font-semibold leading-snug block ${
-                                item.completed ? 'line-through text-slate-400' : 'text-slate-900'
-                              }`}>
-                                {item.title}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Bottom: Assignee, Evaluation & Actions */}
-                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
-                          {/* Assignee */}
-                          <div className="flex items-center gap-1.5 text-slate-600 min-w-0">
-                            <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <span className="truncate font-medium text-[11px]" title={item.assignee || 'Chưa phân công'}>
-                              {item.assignee || 'Chưa phân công'}
-                            </span>
-                          </div>
-
-                          {/* Evaluation Status */}
-                          <div className="flex items-center gap-1 shrink-0">
-                            {isLeaderOrAdmin ? (
-                              /* Leader quick evaluation dropdown */
-                              <select
-                                value={item.evaluationStatus || 'Chua_Danh_Gia'}
-                                onChange={(e) => handleEvaluationChange(item, e.target.value as any)}
-                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border cursor-pointer focus:outline-hidden ${
-                                  item.evaluationStatus === 'Dat'
-                                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                                    : item.evaluationStatus === 'Chua_Dat'
-                                    ? 'bg-rose-100 text-rose-800 border-rose-300'
-                                    : 'bg-slate-100 text-slate-600 border-slate-300'
-                                }`}
-                              >
-                                <option value="Chua_Danh_Gia">Chờ duyệt</option>
-                                <option value="Dat">Đạt</option>
-                                <option value="Chua_Dat">Chưa đạt</option>
-                              </select>
-                            ) : (
-                              /* Staff badge */
-                              item.evaluationStatus === 'Dat' ? (
-                                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                  Đạt
+                              {/* Checklist Title */}
+                              <td className="py-2.5 px-3">
+                                <span className={`text-xs font-medium ${
+                                  item.completed ? 'line-through text-slate-400' : 'text-slate-900'
+                                }`}>
+                                  {item.title}
                                 </span>
-                              ) : item.evaluationStatus === 'Chua_Dat' ? (
-                                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-100 text-rose-800 border border-rose-300">
-                                  Chưa đạt
-                                </span>
-                              ) : (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full text-slate-500 bg-slate-100">
-                                  Chờ duyệt
-                                </span>
-                              )
-                            )}
-                          </div>
-                        </div>
+                              </td>
 
-                      </div>
-                    ))}
+                              {/* Parent Task Name */}
+                              <td className="py-2.5 px-3 hidden lg:table-cell">
+                                <span className="text-[11px] text-slate-500 truncate block max-w-[200px]" title={item.parentTask.tenNhiemVu}>
+                                  {item.parentTask.tenNhiemVu}
+                                </span>
+                              </td>
+
+                              {/* Assignee */}
+                              <td className="py-2.5 px-3">
+                                <span className="text-[11px] text-slate-700 font-medium truncate block max-w-[120px]" title={item.assignee || 'Chưa giao'}>
+                                  {item.assignee || <span className="text-slate-400 italic">Chưa giao</span>}
+                                </span>
+                              </td>
+
+                              {/* Due Date */}
+                              <td className="py-2.5 px-3 font-mono text-[11px] text-slate-600">
+                                {formatVNDate(item.dueDate)}
+                              </td>
+
+                              {/* Date Status Badge */}
+                              <td className="py-2.5 px-3">
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full border inline-block whitespace-nowrap ${item.dueDateStatus.badgeClass}`}>
+                                  {item.dueDateStatus.label}
+                                </span>
+                              </td>
+
+                              {/* Evaluation */}
+                              <td className="py-2.5 px-3 text-center">
+                                {isLeaderOrAdmin ? (
+                                  <select
+                                    value={item.evaluationStatus || 'Chua_Danh_Gia'}
+                                    onChange={(e) => handleEvaluationChange(item, e.target.value as any)}
+                                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border cursor-pointer focus:outline-hidden ${
+                                      item.evaluationStatus === 'Dat'
+                                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                        : item.evaluationStatus === 'Chua_Dat'
+                                        ? 'bg-rose-100 text-rose-800 border-rose-300'
+                                        : 'bg-slate-100 text-slate-600 border-slate-300'
+                                    }`}
+                                  >
+                                    <option value="Chua_Danh_Gia">Chờ duyệt</option>
+                                    <option value="Dat">Đạt</option>
+                                    <option value="Chua_Dat">Chưa đạt</option>
+                                  </select>
+                                ) : (
+                                  item.evaluationStatus === 'Dat' ? (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">Đạt</span>
+                                  ) : item.evaluationStatus === 'Chua_Dat' ? (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-rose-100 text-rose-800 border border-rose-300">Chưa đạt</span>
+                                  ) : (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full text-slate-500 bg-slate-100">Chờ duyệt</span>
+                                  )
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               );
