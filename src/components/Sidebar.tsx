@@ -28,7 +28,8 @@ import {
   MessageSquareQuote,
   Users,
   Sparkles,
-  Send
+  Send,
+  ListTodo
 } from 'lucide-react';
 import { CustomCategory, UserAccount, BaseWeworkPerspective, MenuSettings } from '../types';
 import { PLAN_GROUPS } from '../data/initialData';
@@ -64,6 +65,7 @@ interface SidebarProps {
   pendingApprovalCount: number;
   myDelegatedCount?: number;
   aiRecommendedCount?: number;
+  overdueChecklistCount?: number;
   menuSettings?: MenuSettings;
   // Active Filter States
   selectedPerspective: BaseWeworkPerspective;
@@ -106,6 +108,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   pendingApprovalCount,
   myDelegatedCount = 0,
   aiRecommendedCount = 0,
+  overdueChecklistCount = 0,
   menuSettings,
   selectedPerspective,
   onSelectPerspective,
@@ -292,6 +295,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <BarChart3 className={`w-4 h-4 shrink-0 ${activeView === 'stats' ? 'text-white' : 'text-slate-400'}`} />
               {isOpen && <span className="truncate">Báo cáo & KPI</span>}
             </div>
+          </button>
+
+          {/* Checklist & Daily Reminder Hub */}
+          <button
+            onClick={() => { onSelectView('checklistHub'); closeOnMobile(); }}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all font-medium cursor-pointer ${
+              activeView === 'checklistHub'
+                ? 'bg-[#0066FF] text-white font-bold shadow-md shadow-blue-900/40'
+                : 'text-slate-300 hover:bg-white/10 hover:text-white'
+            }`}
+            title="Trung tâm Nhắc nhở & Đôn đốc Checklist hàng ngày"
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <ListTodo className={`w-4 h-4 shrink-0 ${activeView === 'checklistHub' ? 'text-white' : 'text-[#FFD700]'}`} />
+              {isOpen && <span className="truncate">Đôn đốc Checklist</span>}
+            </div>
+            {isOpen && overdueChecklistCount > 0 && (
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-rose-600 text-white animate-pulse">
+                {overdueChecklistCount}
+              </span>
+            )}
           </button>
         </div>
 

@@ -32,6 +32,7 @@ import { QuickStatusBar } from './components/QuickStatusBar';
 import { AuditLogPanel } from './components/AuditLogPanel';
 import { AuditLogView } from './components/AuditLogView';
 import { DirectivePanel } from './components/DirectivePanel';
+import { ChecklistReminderHub } from './components/ChecklistReminderHub';
 import { getActorRole } from './utils/permissions';
 import { X } from 'lucide-react';
 
@@ -116,6 +117,30 @@ export default function App() {
     { ...filters, selectedPerspective },
     sort
   );
+
+  const overdueChecklistCount = React.useMemo(() => {
+    let count = 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    accessibleTasks.forEach((t) => {
+      if (t.checklist && t.checklist.length > 0) {
+        t.checklist.forEach((c) => {
+          if (!c.completed && c.dueDate) {
+            const parts = c.dueDate.split('-');
+            if (parts.length === 3) {
+              const due = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+              due.setHours(0, 0, 0, 0);
+              if (due.getTime() < today.getTime()) {
+                count++;
+              }
+            }
+          }
+        });
+      }
+    });
+    return count;
+  }, [accessibleTasks]);
 
   const handleLoginSuccess = (account: UserAccount) => {
     const { defaultView, defaultPerspective } = handleLogin(account);
@@ -238,6 +263,7 @@ export default function App() {
           pendingApprovalCount={pendingApprovalCount}
           myDelegatedCount={myDelegatedCount}
           aiRecommendedCount={aiRecommendations.length}
+          overdueChecklistCount={overdueChecklistCount}
           menuSettings={menuSettings}
           selectedPerspective={selectedPerspective}
           onSelectPerspective={setSelectedPerspective}
@@ -254,18 +280,44 @@ export default function App() {
 
         {/* Right Main Content Area */}
         <main className="flex-1 flex flex-col min-w-0 bg-[#fafafb] overflow-y-auto">
-          {/* Top KPI Cards right below Header */}
-          {activeView !== 'auditLogs' && (
-            <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-1.5 shadow-2xs">
-              <div className="max-w-[1600px] mx-auto">
-                <QuickStatusBar
-                  tasks={accessibleTasks}
-                  selectedStatus={filters.selectedStatus}
-                  onSelectStatus={(status) => setFilter('selectedStatus', status)}
-                />
+          {activeView === 'checklistHub' ? (
+            <div className="flex-1 flex flex-col min-w-0">
+              <ChecklistReminderHub
+                tasks={accessibleTasks}
+                currentUser={currentUser}
+                onUpdateTask={handleSaveTask}
+                onSelectTask={(task) => setSelectedTask(task)}
+                onOpenDirectives={() => openModal('directives')}
+              />
+              <div className="max-w-[1600px] mx-auto w-full px-4 sm:px-6 pb-6">
+                <footer className="mt-6 py-4 px-6 border border-slate-200 bg-white text-slate-600 text-xs flex flex-col sm:flex-row items-center justify-between gap-2.5 shrink-0 rounded-2xl shadow-xs text-center sm:text-left">
+                  <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
+                    <span className="font-bold text-[#0B2545]">TRƯỜNG ĐẠI HỌC HÙNG VƯƠNG</span>
+                    <span className="hidden sm:inline text-slate-300">|</span>
+                    <span className="text-slate-500 font-medium text-[11px] sm:text-xs">
+                      Cổng Điều Hành Chuyển Đổi Số (NQ57)
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-400">
+                    © 2026 HVU. Phát triển bởi Tổ Chuyển đổi số.
+                  </span>
+                </footer>
               </div>
             </div>
-          )}
+          ) : (
+            <>
+              {/* Top KPI Cards right below Header */}
+              {activeView !== 'auditLogs' && (
+                <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-1.5 shadow-2xs">
+                  <div className="max-w-[1600px] mx-auto">
+                    <QuickStatusBar
+                      tasks={accessibleTasks}
+                      selectedStatus={filters.selectedStatus}
+                      onSelectStatus={(status) => setFilter('selectedStatus', status)}
+                    />
+                  </div>
+                </div>
+              )}
 
           {/* Main Content Workspace Container */}
           <div className="p-4 sm:p-6 space-y-4 max-w-[1600px] w-full mx-auto flex-1 flex flex-col">
@@ -498,7 +550,9 @@ export default function App() {
               </span>
             </footer>
           </div>
-        </main>
+        </>
+      )}
+    </main>
       </div>
 
       {/* MODALS */}
