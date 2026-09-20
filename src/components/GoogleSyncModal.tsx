@@ -27,7 +27,8 @@ import {
   exportToGoogleSheets, 
   importFromGoogleSheets,
   fetchTasksFromGas,
-  pushTasksToGas
+  pushTasksToGas,
+  DEFAULT_PHP_BRIDGE_URL
 } from '../utils/googleSheets';
 import { INITIAL_ACCOUNTS } from '../data/initialData';
 
@@ -60,9 +61,11 @@ export const GoogleSyncModal: React.FC<GoogleSyncModalProps> = ({
   const [accessToken, setAccessToken] = useState<string>('');
   const [config, setConfig] = useState(() => loadSyncConfig());
   const [gasWebAppUrlInput, setGasWebAppUrlInput] = useState(config.gasWebAppUrl || '');
+  const [phpBridgeUrlInput, setPhpBridgeUrlInput] = useState(config.phpBridgeUrl || DEFAULT_PHP_BRIDGE_URL);
   const [spreadsheetIdInput, setSpreadsheetIdInput] = useState(config.spreadsheetId);
   const [driveFolderIdInput, setDriveFolderIdInput] = useState(config.driveFolderId);
   const [autoBackupInput, setAutoBackupInput] = useState(config.autoBackup);
+  const [phpBridgeStatus, setPhpBridgeStatus] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle');
 
   const [isLoading, setIsLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -84,7 +87,10 @@ export const GoogleSyncModal: React.FC<GoogleSyncModalProps> = ({
     setErrorMsg('');
     setSuccessMsg('');
     try {
-      saveSyncConfig({ gasWebAppUrl: gasWebAppUrlInput.trim() });
+      saveSyncConfig({ 
+        gasWebAppUrl: gasWebAppUrlInput.trim(),
+        driveFolderId: driveFolderIdInput.trim() 
+      });
       const result = await fetchTasksFromGas(gasWebAppUrlInput);
       if (!result.tasks || result.tasks.length === 0) {
         setErrorMsg('Không tìm thấy nhiệm vụ nào trong sheet 01_Nhiem_Vu_NQ57.');
@@ -96,7 +102,12 @@ export const GoogleSyncModal: React.FC<GoogleSyncModalProps> = ({
       }
       const nowString = new Date().toLocaleString('vi-VN');
       saveSyncConfig({ lastSync: nowString });
-      setConfig(prev => ({ ...prev, lastSync: nowString, gasWebAppUrl: gasWebAppUrlInput.trim() }));
+      setConfig(prev => ({ 
+        ...prev, 
+        lastSync: nowString, 
+        gasWebAppUrl: gasWebAppUrlInput.trim(),
+        driveFolderId: driveFolderIdInput.trim()
+      }));
       const accInfo = result.accounts && result.accounts.length > 0 ? ` và ${result.accounts.length} tài khoản người dùng` : '';
       setSuccessMsg(`Đã đồng bộ thành công ${result.tasks.length} nhiệm vụ${accInfo} từ Google Sheets về Web! (${nowString})`);
     } catch (err: any) {
@@ -115,7 +126,10 @@ export const GoogleSyncModal: React.FC<GoogleSyncModalProps> = ({
     setErrorMsg('');
     setSuccessMsg('');
     try {
-      saveSyncConfig({ gasWebAppUrl: gasWebAppUrlInput.trim() });
+      saveSyncConfig({ 
+        gasWebAppUrl: gasWebAppUrlInput.trim(),
+        driveFolderId: driveFolderIdInput.trim() 
+      });
       await pushTasksToGas(gasWebAppUrlInput, tasks);
       const nowString = new Date().toLocaleString('vi-VN');
       saveSyncConfig({ lastSync: nowString });
@@ -394,6 +408,94 @@ export const GoogleSyncModal: React.FC<GoogleSyncModalProps> = ({
                 <p className="text-[10px] text-zinc-400">
                   Lần đồng bộ thành công gần nhất: <strong className="text-zinc-700">{config.lastSync || 'Chưa thực hiện'}</strong>
                 </p>
+              </div>
+
+              {/* Google Drive Evidence Folder */}
+              <div className="space-y-1.5 bg-zinc-50 border border-zinc-200/80 rounded-xl p-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-zinc-800 flex items-center gap-1.5">
+                    <HardDrive className="w-3.5 h-3.5 text-blue-600" />
+                    Thư mục lưu trữ minh chứng Google Drive (Folder ID):
+                  </label>
+                  <a
+                    href={`https://drive.google.com/drive/folders/${driveFolderIdInput || '0AF8hu-TYNSosUk9PVA'}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[10px] text-blue-600 hover:underline font-semibold flex items-center gap-1"
+                  >
+                    Mở trên Drive ↗
+                  </a>
+                </div>
+                <input
+                  type="text"
+                  placeholder="0AF8hu-TYNSosUk9PVA"
+                  value={driveFolderIdInput}
+                  onChange={(e) => setDriveFolderIdInput(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs bg-white border border-zinc-300 rounded-lg focus:outline-hidden focus:border-blue-600 font-mono text-zinc-700"
+                />
+                <p className="text-[10px] text-zinc-500">
+                  Tất cả file minh chứng tải lên sẽ được tự động phân loại vào thư mục con theo từng nhiệm vụ trong thư mục này.
+                </p>
+              </div>
+
+              {/* PHP Bridge Section */}
+              <div className="space-y-2 bg-blue-50 border-2 border-blue-200 rounded-xl p-3.5">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-blue-700 font-black text-xs bg-blue-100 px-2 py-0.5 rounded-full">⚡ KHUYẾN NGHỊ</span>
+                  <span className="text-xs font-bold text-blue-900">PHP Bridge (XAMPP Local) — Upload file minh chứng</span>
+                </div>
+                <p className="text-[10px] text-blue-800 leading-relaxed">
+                  File được đẩy <strong>trực tiếp lên Google Drive</strong> qua PHP chạy trên XAMPP của bạn.
+                  Không cần GAS, không cần OAuth. Chỉ cần tạo <strong>Service Account</strong> 1 lần.
+                </p>
+                <div className="flex gap-2 items-start">
+                  <div className="relative flex-1">
+                    <input
+                      type="url"
+                      placeholder="http://localhost/chuyendoiso/api/upload_drive.php"
+                      value={phpBridgeUrlInput}
+                      onChange={(e) => setPhpBridgeUrlInput(e.target.value)}
+                      className="w-full px-3 py-1.5 text-xs bg-white border border-blue-300 rounded-lg focus:outline-none focus:border-blue-600 font-mono text-zinc-700"
+                    />
+                  </div>
+                  <button
+                    onClick={async () => {
+                      setPhpBridgeStatus('testing');
+                      saveSyncConfig({ phpBridgeUrl: phpBridgeUrlInput.trim() });
+                      setConfig(prev => ({ ...prev, phpBridgeUrl: phpBridgeUrlInput.trim() }));
+                      try {
+                        const res = await fetch(phpBridgeUrlInput.trim(), { method: 'POST', body: new FormData() });
+                        const text = await res.text();
+                        const json = JSON.parse(text);
+                        if (json.setup_guide || json.error?.includes('service_account')) {
+                          setPhpBridgeStatus('error');
+                          alert('PHP Bridge hoạt động ✅ nhưng chưa có file service_account.json.\n\n' + (json.setup_guide || json.error));
+                        } else {
+                          setPhpBridgeStatus('ok');
+                        }
+                      } catch (e: any) {
+                        setPhpBridgeStatus('error');
+                        alert('Không kết nối được PHP Bridge. Kiểm tra XAMPP đang chạy và URL đúng.\n\n' + e.message);
+                      }
+                    }}
+                    className={`shrink-0 px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                      phpBridgeStatus === 'ok'
+                        ? 'bg-green-100 border-green-400 text-green-800'
+                        : phpBridgeStatus === 'error'
+                        ? 'bg-red-100 border-red-400 text-red-800'
+                        : 'bg-white border-blue-300 text-blue-700 hover:bg-blue-100'
+                    }`}
+                  >
+                    {phpBridgeStatus === 'testing' ? '...' : phpBridgeStatus === 'ok' ? '✅ OK' : phpBridgeStatus === 'error' ? '❌ Lỗi' : 'Test'}
+                  </button>
+                </div>
+                <a
+                  href="https://console.cloud.google.com/iam-admin/serviceaccounts"
+                  target="_blank" rel="noreferrer"
+                  className="text-[10px] text-blue-600 hover:underline flex items-center gap-1"
+                >
+                  📖 Tạo Service Account trên Google Cloud Console ↗
+                </a>
               </div>
 
               {/* Action Buttons */}

@@ -7,11 +7,16 @@ const GOOGLE_ACCESS_TOKEN_KEY = 'hvu_nq57_google_access_token_v1';
 const AUTO_BACKUP_KEY = 'hvu_nq57_auto_backup_v1';
 const LAST_SYNC_KEY = 'hvu_nq57_last_sync_v1';
 const GAS_WEBAPP_URL_KEY = 'hvu_nq57_gas_webapp_url_v1';
+const PHP_BRIDGE_URL_KEY = 'hvu_nq57_php_bridge_url_v1';
+
+/** URL mặc định PHP Bridge khi chạy XAMPP local */
+export const DEFAULT_PHP_BRIDGE_URL = 'http://localhost/chuyendoiso/api/upload_drive.php';
 
 export interface GoogleSyncConfig {
   spreadsheetId: string;
   driveFolderId: string;
   gasWebAppUrl: string;
+  phpBridgeUrl: string;   // URL PHP Bridge local (XAMPP)
   autoBackup: boolean;
   lastSync: string;
 }
@@ -19,8 +24,9 @@ export interface GoogleSyncConfig {
 export function loadSyncConfig(): GoogleSyncConfig {
   return {
     spreadsheetId: localStorage.getItem(SPREADSHEET_ID_KEY) || '1furcGHFPPe_sIG1h78Y3leJN_eA1GnRipBYQAX6YBSc',
-    driveFolderId: localStorage.getItem(DRIVE_FOLDER_ID_KEY) || '',
+    driveFolderId: localStorage.getItem(DRIVE_FOLDER_ID_KEY) || '0AF8hu-TYNSosUk9PVA',
     gasWebAppUrl: localStorage.getItem(GAS_WEBAPP_URL_KEY) || '',
+    phpBridgeUrl: localStorage.getItem(PHP_BRIDGE_URL_KEY) || DEFAULT_PHP_BRIDGE_URL,
     autoBackup: localStorage.getItem(AUTO_BACKUP_KEY) === 'true',
     lastSync: localStorage.getItem(LAST_SYNC_KEY) || '',
   };
@@ -35,6 +41,9 @@ export function saveSyncConfig(config: Partial<GoogleSyncConfig>): void {
   }
   if (config.gasWebAppUrl !== undefined) {
     localStorage.setItem(GAS_WEBAPP_URL_KEY, config.gasWebAppUrl);
+  }
+  if (config.phpBridgeUrl !== undefined) {
+    localStorage.setItem(PHP_BRIDGE_URL_KEY, config.phpBridgeUrl);
   }
   if (config.autoBackup !== undefined) {
     localStorage.setItem(AUTO_BACKUP_KEY, String(config.autoBackup));
@@ -151,6 +160,155 @@ export async function pushChangePasswordToGas(webAppUrl: string, email: string, 
   } catch (err) {
     console.warn('Failed to change password in GAS:', err);
     return false;
+  }
+}
+
+export interface UploadEvidenceGasResult {
+  success: boolean;
+  fileId: string;
+  driveUrl: string;
+  downloadUrl?: string;
+  folderId?: string;
+  folderName?: string;
+  error?: string;
+}
+
+/**
+ * Uploads an evidence file directly to Google Drive via Google Apps Script Web App
+ */
+export async function uploadEvidenceFileToGas(
+  webAppUrl: string,
+  data: {
+    taskId: string;
+    taskTitle: string;
+    fileName: string;
+    mimeType: string;
+    fileBase64: string;
+    fileSize: number;
+    uploadedBy: string;
+    docType?: string;
+    driveFolderId?: string;
+    subfolderName?: string;
+  }
+): Promise<UploadEvidenceGasResult> {
+  const url = webAppUrl.trim();
+  if (!url) throw new Error('Vui lòng nhập URL Web App của Google Apps Script.');
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({
+      action: 'uploadEvidenceFile',
+      taskId: data.taskId,
+      taskTitle: data.taskTitle,
+      fileName: data.fileName,
+      mimeType: data.mimeType,
+      fileBase64: data.fileBase64,
+      fileSize: data.fileSize,
+      uploadedBy: data.uploadedBy,
+      docType: data.docType || 'MC',
+      driveFolderId: data.driveFolderId || '0AF8hu-TYNSosUk9PVA',
+      subfolderName: data.subfolderName,
+    }),
+  });
+
+  const text = await res.text();
+  try {
+    const json = JSON.parse(text);
+    if (json.error) throw new Error(json.error);
+    return json;
+  } catch (err: any) {
+    if (err.message && !err.message.includes('JSON')) throw err;
+    throw new Error('Không thể phân tích phản hồi từ Google Apps Script.');
+  }
+}
+
+export interface PhpBridgeUploadResult {
+  success: boolean;
+  fileId?: string;
+  driveUrl?: string;
+  downloadUrl?: string;
+  folderId?: string;
+  folderName?: string;
+  fileName?: string;
+  fileSize?: number;
+  error?: string;
+  setup_guide?: string;
+}
+
+/**
+ * Uploads a real file to Google Drive via local PHP Bridge (XAMPP).
+ * Priority method — no GAS deploy needed, no OAuth popup, uses Service Account.
+ *
+ * PHP file: d:/xampp/htdocs/chuyendoiso/api/upload_drive.php
+ * Service Account: d:/xampp/htdocs/chuyendoiso/api/service_account.json
+ */
+export async function uploadFileViaPhpBridge(
+  bridgeUrl: string,
+  file: File,
+  opts: {
+    taskId: string;
+    taskTitle: string;
+    uploadedBy: string;
+    docType?: string;
+    driveFolderId?: string;
+    fileName?: string;   // standardized name from frontend
+  }
+): Promise<PhpBridgeUploadResult> {
+  const url = bridgeUrl.trim();
+  if (!url) throw new Error('Chưa cấu hình URL PHP Bridge.');
+
+  const formData = new FormData();
+  formData.append('file', file, opts.fileName || file.name);
+  formData.append('taskId', opts.taskId);
+  formData.append('taskTitle', opts.taskTitle);
+  formData.append('uploadedBy', opts.uploadedBy);
+  formData.append('docType', opts.docType || 'MC');
+  formData.append('driveFolderId', opts.driveFolderId || '0AF8hu-TYNSosUk9PVA');
+  if (opts.fileName) formData.append('fileName', opts.fileName);
+
+  const res = await fetch(url, { method: 'POST', body: formData });
+  const text = await res.text();
+
+  try {
+    const json: PhpBridgeUploadResult = JSON.parse(text);
+    return json;
+  } catch {
+    throw new Error(`PHP Bridge trả về dữ liệu không hợp lệ (HTTP ${res.status}): ${text.slice(0, 200)}`);
+  }
+}
+
+/**
+ * Sends notification or reminder email via Google Apps Script (MailApp / GmailApp)
+ */
+export async function sendNotificationEmailViaGas(
+  webAppUrl: string,
+  recipientEmail: string,
+  subject: string,
+  htmlBody: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  const url = webAppUrl.trim();
+  if (!url) throw new Error('Vui lòng nhập URL Web App của Google Apps Script.');
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({
+      action: 'sendNotificationEmail',
+      recipientEmail: recipientEmail.trim(),
+      subject: subject.trim(),
+      htmlBody: htmlBody,
+    }),
+  });
+
+  const text = await res.text();
+  try {
+    const json = JSON.parse(text);
+    if (json.error) throw new Error(json.error);
+    return json;
+  } catch (err: any) {
+    if (err.message && !err.message.includes('JSON')) throw err;
+    throw new Error('Không thể phân tích phản hồi từ Google Apps Script khi gửi email.');
   }
 }
 

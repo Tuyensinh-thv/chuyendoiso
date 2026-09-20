@@ -20,14 +20,21 @@ import {
   Table as TableIcon,
   Layers,
   ChevronDown,
-  Activity
+  Activity,
+  Mail,
+  FileSpreadsheet,
+  RefreshCw
 } from 'lucide-react';
-import { TaskNQ57, TaskChecklistItem, UserAccount } from '../types';
+import { TaskNQ57, TaskChecklistItem, UserAccount, ChecklistEvaluationStatus } from '../types';
 import { DEPARTMENTS } from '../data/initialData';
+import { exportTasksToExcel } from '../utils/excelExport';
+import { sendNotificationEmailViaGas, loadSyncConfig } from '../utils/googleSheets';
+import { generateReminderEmailHtml } from '../utils/emailTemplates';
 
 interface ChecklistReminderHubProps {
   tasks: TaskNQ57[];
   currentUser: UserAccount;
+  accounts?: UserAccount[];
   onUpdateTask: (task: TaskNQ57) => void;
   onSelectTask: (task: TaskNQ57) => void;
   onOpenDirectives?: () => void;
@@ -46,6 +53,7 @@ interface FlattenedChecklist extends TaskChecklistItem {
 export const ChecklistReminderHub: React.FC<ChecklistReminderHubProps> = ({
   tasks,
   currentUser,
+  accounts = [],
   onUpdateTask,
   onSelectTask,
   onOpenDirectives,
@@ -57,8 +65,86 @@ export const ChecklistReminderHub: React.FC<ChecklistReminderHubProps> = ({
   const [filterAssignee, setFilterAssignee] = useState<'all' | 'mine' | string>('all');
   const [filterDept, setFilterDept] = useState<string>('all');
   const [filterEvaluation, setFilterEvaluation] = useState<'all' | 'Dat' | 'Chua_Dat' | 'Chua_Danh_Gia'>('all');
+  const [isSendingEmails, setIsSendingEmails] = useState(false);
+  const [emailStatusMsg, setEmailStatusMsg] = useState<string>('');
 
-  const isLeaderOrAdmin = currentUser.vaiTro === 'Admin' || currentUser.vaiTro === 'Lanh_Dao';
+  const isLeaderOrAdmin = currentUser.vaiTro === 'Admin' || currentUser.vaiTro === 'Lanh_Dao' || currentUser.vaiTro === 'To_Chuyen_Trach';
+
+  const handleExportExcel = () => {
+    exportTasksToExcel(tasks, 'Bao_Cao_Tien_Do_57_Nhiem_Vu_NQ57');
+  };
+
+  const handleBatchSendReminders = async () => {
+    const config = loadSyncConfig();
+    if (!config.gasWebAppUrl) {
+      alert('Vui lòng kết nối URL Web App của Google Apps Script trong mục Đồng bộ trước khi gửi email đôn đốc!');
+      return;
+    }
+
+    const urgentTasks = tasks.filter(
+      (t) => t.trangThai === 'Quá hạn' || t.trangThai === 'Sắp đến hạn'
+    );
+
+    if (urgentTasks.length === 0) {
+      alert('Tuyệt vời! Hiện không có nhiệm vụ nào quá hạn hoặc sắp đến hạn cần đôn đốc.');
+      return;
+    }
+
+    if (!window.confirm(`Bạn có chắc chắn muốn gửi email đôn đốc đến các đơn vị phụ trách ${urgentTasks.length} nhiệm vụ sắp đến hạn / quá hạn?`)) {
+      return;
+    }
+
+    setIsSendingEmails(true);
+    setEmailStatusMsg('Đang tổng hợp danh sách nhiệm vụ và gửi email qua Google Workspace...');
+
+    try {
+      const unitMap: Record<string, TaskNQ57[]> = {};
+      urgentTasks.forEach((t) => {
+        const unit = t.donViChuTri || 'Chung';
+        if (!unitMap[unit]) unitMap[unit] = [];
+        unitMap[unit].push(t);
+      });
+
+      let sentCount = 0;
+      for (const unit of Object.keys(unitMap)) {
+        const unitTasks = unitMap[unit];
+        const acc = accounts.find((a) => a.donVi && unit && a.donVi.toLowerCase().includes(unit.toLowerCase()) && a.email);
+        const recipientEmail = acc?.email || unitTasks[0].emailPhuTrach;
+
+        if (recipientEmail) {
+          const items = unitTasks.map((t) => ({
+            taskId: t.id,
+            taskTitle: t.tenNhiemVu,
+            thoiHan: t.thoiHan,
+            trangThai: t.trangThai,
+            isOverdue: t.trangThai === 'Quá hạn',
+          }));
+
+          const htmlBody = generateReminderEmailHtml({
+            donVi: unit,
+            nguoiNhan: acc?.hoTen || unitTasks[0].nguoiPhuTrach,
+            items,
+          });
+
+          await sendNotificationEmailViaGas(
+            config.gasWebAppUrl,
+            recipientEmail,
+            `[ĐÔN ĐỐC NQ57] Nhắc nhở tiến độ thực hiện nhiệm vụ - ${unit}`,
+            htmlBody
+          );
+          sentCount++;
+        }
+      }
+
+      setEmailStatusMsg(`Đã gửi thành công email đôn đốc tới ${sentCount} đơn vị!`);
+      setTimeout(() => setEmailStatusMsg(''), 6000);
+    } catch (err: any) {
+      console.error('Batch send reminder error:', err);
+      alert('Lỗi gửi email đôn đốc: ' + (err.message || ''));
+    } finally {
+      setIsSendingEmails(false);
+    }
+  };
 
   // Helper date calculation
   const calculateDateStatus = (dueDateStr?: string, completed?: boolean) => {
@@ -316,7 +402,7 @@ export const ChecklistReminderHub: React.FC<ChecklistReminderHubProps> = ({
 
     let newStatus = parent.trangThai;
     if (newProgress === 100 && parent.approvalStatus === 'Da_Duyet') {
-      newStatus = 'Hoàn thành';
+      newStatus = 'Đã hoàn thành';
     } else if (newProgress > 0 && newStatus === 'Chưa thực hiện') {
       newStatus = 'Đang thực hiện';
     }
@@ -332,7 +418,7 @@ export const ChecklistReminderHub: React.FC<ChecklistReminderHubProps> = ({
     onUpdateTask(updatedTask);
   };
 
-  const handleEvaluationChange = (item: FlattenedChecklist, status: 'Dat' | 'Chua_Dat' | 'Chua_Danh_Gia') => {
+  const handleEvaluationChange = (item: FlattenedChecklist, status: ChecklistEvaluationStatus) => {
     const parent = item.parentTask;
     const updatedChecklist = (parent.checklist || []).map(c => {
       if (c.id === item.id) {
@@ -506,6 +592,33 @@ export const ChecklistReminderHub: React.FC<ChecklistReminderHubProps> = ({
                 <User className="w-3.5 h-3.5" />
                 <span>Việc của tôi</span>
               </button>
+
+              {/* Nút Xuất Excel */}
+              <button
+                onClick={handleExportExcel}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-all cursor-pointer shadow-2xs"
+                title="Xuất danh sách 57 nhiệm vụ ra file Excel đúng mẫu Phụ lục công văn Nhà trường"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Xuất Excel</span>
+              </button>
+
+              {/* Nút Gửi Email Đôn Đốc Hàng Loạt */}
+              {isLeaderOrAdmin && (
+                <button
+                  onClick={handleBatchSendReminders}
+                  disabled={isSendingEmails}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+                  title="Gửi email đôn đốc tới các đơn vị có nhiệm vụ quá hạn hoặc sắp đến hạn"
+                >
+                  {isSendingEmails ? (
+                    <RefreshCw className="w-3.5 h-3.5 text-rose-600 animate-spin" />
+                  ) : (
+                    <Mail className="w-3.5 h-3.5 text-rose-600" />
+                  )}
+                  <span>{isSendingEmails ? 'Đang gửi...' : 'Gửi Đôn Đốc'}</span>
+                </button>
+              )}
 
               {/* View Switcher */}
               <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">

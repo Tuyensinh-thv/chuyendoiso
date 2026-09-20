@@ -1,0 +1,13 @@
+# Bảo vệ file service_account.json — KHÔNG cho truy cập từ trình duyệt
+<Files "service_account.json">
+    Order allow,deny
+    Deny from all
+</Files>
+
+<Files "upload_log.json">
+    Order allow,deny
+    Deny from all
+</Files>
+
+# Cho phép PHP xử lý
+Options -Indexes

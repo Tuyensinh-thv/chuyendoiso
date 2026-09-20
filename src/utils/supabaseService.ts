@@ -383,6 +383,52 @@ export function subscribeToAuditLogs(onUpdate: () => void) {
     .subscribe();
 }
 
+// ==================== FILE STORAGE (SUPABASE STORAGE) API ====================
+
+export interface UploadEvidenceResult {
+  success: boolean;
+  publicUrl: string;
+  storagePath: string;
+  error?: string;
+}
+
+/**
+ * Uploads an evidence file to Supabase Storage bucket 'minh-chung'.
+ * No GAS / Google Apps Script required — uses the existing anon key.
+ *
+ * Bucket must exist in Supabase Dashboard → Storage → Create bucket "minh-chung" (public).
+ * Path scheme: minh-chung/{taskId}/{standardizedFileName}
+ */
+export async function uploadFileToSupabaseStorage(
+  taskId: string,
+  fileName: string,
+  file: File
+): Promise<UploadEvidenceResult> {
+  const storagePath = `${taskId}/${fileName}`;
+
+  const { data, error } = await supabase.storage
+    .from('minh-chung')
+    .upload(storagePath, file, {
+      cacheControl: '3600',
+      upsert: true,
+      contentType: file.type || 'application/octet-stream',
+    });
+
+  if (error) {
+    return { success: false, publicUrl: '', storagePath: '', error: error.message };
+  }
+
+  const { data: urlData } = supabase.storage
+    .from('minh-chung')
+    .getPublicUrl(data.path);
+
+  return {
+    success: true,
+    publicUrl: urlData.publicUrl,
+    storagePath: data.path,
+  };
+}
+
 // ==================== SYSTEM SETTINGS (MENU TOGGLES) API ====================
 
 export async function fetchMenuSettingsFromSupabase(): Promise<MenuSettings | null> {

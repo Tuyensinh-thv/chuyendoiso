@@ -47,8 +47,11 @@ import {
   DOCUMENT_TYPES, 
   generateTaskFolderPath, 
   generateEvidenceFileName, 
-  detectDocumentType 
+  detectDocumentType,
+  toSafeAlphanumericName
 } from '../utils/driveNamingUtils';
+import { loadSyncConfig, uploadEvidenceFileToGas, sendNotificationEmailViaGas, uploadFileViaPhpBridge } from '../utils/googleSheets';
+import { generateDirectiveEmailHtml } from '../utils/emailTemplates';
 
 interface TaskModalProps {
   task: TaskNQ57 | null;
@@ -92,6 +95,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedDocType, setSelectedDocType] = useState<DocumentType>('BC');
+  const [uploadStatusText, setUploadStatusText] = useState<string>('');
   const [rightTab, setRightTab] = useState<'checklist' | 'comments'>('checklist');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -150,30 +154,126 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const currentCategory = categories.find((c) => c.id === formState.category || c.name === formState.category);
   const currentCatBadge = currentCategory ? getCategoryBadgeClass(currentCategory.color) : null;
 
-  // File Upload to Simulated Google Drive storage with standardized naming
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // File Upload: PHP Bridge (ưu tiên) → GAS → Local fallback
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    const config = loadSyncConfig();
     setIsUploading(true);
 
-    Array.from(files).forEach((file: File) => {
-      // Auto-detect docType from file name, fallback to user-selectedDocType
-      const detected = detectDocumentType(file.name);
-      const effectiveDocType = detected !== 'MC' ? detected : selectedDocType;
+    try {
+      const fileList: File[] = Array.from(files);
+      const newFilesList: EvidenceFile[] = [];
 
-      // Standardized file name: [NVxx]_[DocType]_[ContentName]_[YYYYMMDD].[ext]
-      const standardizedName = generateEvidenceFileName(
-        formState.id,
-        file.name,
-        effectiveDocType
-      );
+      for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i];
+        const detected = detectDocumentType(file.name);
+        const effectiveDocType = detected !== 'MC' ? detected : selectedDocType;
 
-      // Standardized folder path: Google_Drive/HVU_NQ57/[NVxx]_[TaskNameClean]
-      const standardizedFolderPath = generateTaskFolderPath(formState.id, formState.tenNhiemVu);
+        const standardizedName = generateEvidenceFileName(
+          formState.id,
+          file.name,
+          effectiveDocType
+        );
+        const standardizedFolderPath = generateTaskFolderPath(formState.id, formState.tenNhiemVu);
+        const taskSubfolderName = `${formState.id}_${toSafeAlphanumericName(formState.tenNhiemVu, 30)}`;
 
-      const reader = new FileReader();
-      reader.onload = () => {
+        let targetDriveUrl = '';
+        let isUploadedToGoogleDrive = false;
+
+        // ── PHƯƠNG THỨC 1: PHP Bridge (XAMPP local) ──────────────────────────
+        if (config.phpBridgeUrl && config.phpBridgeUrl.trim()) {
+          setUploadStatusText(`[PHP Bridge] Đang tải lên Drive... (${i + 1}/${fileList.length}) ${file.name}`);
+          try {
+            const res = await uploadFileViaPhpBridge(config.phpBridgeUrl, file, {
+              taskId: formState.id,
+              taskTitle: formState.tenNhiemVu,
+              uploadedBy: currentUser.hoTen,
+              docType: effectiveDocType,
+              driveFolderId: config.driveFolderId || '0AF8hu-TYNSosUk9PVA',
+              fileName: standardizedName,
+            });
+
+            if (res.success && res.driveUrl) {
+              targetDriveUrl = res.driveUrl;
+              isUploadedToGoogleDrive = true;
+            } else if (res.setup_guide) {
+              // Service account chưa được cấu hình — hiện hướng dẫn
+              alert(
+                `⚠️ Chưa cấu hình Service Account cho PHP Bridge.\n\n${res.setup_guide}`
+              );
+            } else {
+              console.warn('PHP Bridge thất bại:', res.error);
+            }
+          } catch (phpErr: any) {
+            console.warn('PHP Bridge error:', phpErr.message);
+          }
+        }
+
+        // ── PHƯƠNG THỨC 2: GAS Web App (nếu PHP Bridge thất bại / chưa có SA) ─
+        if (!isUploadedToGoogleDrive && config.gasWebAppUrl && config.gasWebAppUrl.trim()) {
+          setUploadStatusText(`[GAS] Đang tải lên Drive... (${i + 1}/${fileList.length}) ${file.name}`);
+          try {
+            // Đọc Base64 chỉ khi cần (GAS yêu cầu base64)
+            const base64Data: string = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            });
+
+            const res = await uploadEvidenceFileToGas(config.gasWebAppUrl, {
+              taskId: formState.id,
+              taskTitle: formState.tenNhiemVu,
+              fileName: standardizedName,
+              mimeType: file.type || 'application/octet-stream',
+              fileBase64: base64Data,
+              fileSize: file.size,
+              uploadedBy: currentUser.hoTen,
+              docType: effectiveDocType,
+              driveFolderId: config.driveFolderId || '0AF8hu-TYNSosUk9PVA',
+              subfolderName: taskSubfolderName,
+            });
+
+            if (res.success && res.driveUrl) {
+              targetDriveUrl = res.driveUrl;
+              isUploadedToGoogleDrive = true;
+            }
+          } catch (gasErr: any) {
+            console.warn('GAS upload thất bại:', gasErr.message);
+          }
+        }
+
+        // ── PHƯƠNG THỨC 3: Local fallback ──────────────────────────────────────
+        if (!isUploadedToGoogleDrive) {
+          setUploadStatusText(`Lưu tạm trình duyệt... (${i + 1}/${fileList.length})`);
+          // Đọc Base64 để lưu local nếu chưa lên được Drive
+          const base64Data: string = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          targetDriveUrl = `local://browser-storage/${formState.id}/${standardizedName}`;
+
+          const localFile: EvidenceFile = {
+            id: 'file_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+            name: standardizedName,
+            size: file.size,
+            mimeType: file.type || 'application/octet-stream',
+            uploadDate: new Date().toISOString().slice(0, 10),
+            uploadedBy: currentUser.hoTen,
+            driveUrl: targetDriveUrl,
+            driveFolder: standardizedFolderPath,
+            fileData: base64Data,
+            docType: effectiveDocType,
+            originalName: file.name,
+          };
+          newFilesList.push(localFile);
+          continue; // Đã push, bỏ qua phần push bên dưới
+        }
+
         const newFile: EvidenceFile = {
           id: 'file_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
           name: standardizedName,
@@ -181,29 +281,36 @@ export const TaskModal: React.FC<TaskModalProps> = ({
           mimeType: file.type || 'application/octet-stream',
           uploadDate: new Date().toISOString().slice(0, 10),
           uploadedBy: currentUser.hoTen,
-          driveUrl: `https://drive.google.com/file/d/hvu-${formState.id.toLowerCase()}-${Date.now()}/view`,
+          driveUrl: targetDriveUrl,
           driveFolder: standardizedFolderPath,
-          fileData: reader.result as string,
+          fileData: undefined, // Đã lên Drive thật → không lưu base64 trong localStorage
           docType: effectiveDocType,
           originalName: file.name,
         };
+        newFilesList.push(newFile);
+      }
 
+      if (newFilesList.length > 0) {
         setFormState((prev) => ({
           ...prev,
-          filesMinhChung: [...(prev.filesMinhChung || []), newFile],
-          linkMinhChung: prev.linkMinhChung || newFile.driveUrl,
+          filesMinhChung: [...(prev.filesMinhChung || []), ...newFilesList],
+          linkMinhChung: prev.linkMinhChung || newFilesList[0].driveUrl,
           approvalStatus: prev.approvalStatus === 'Chua_Nop' ? 'Cho_Duyet' : prev.approvalStatus,
           ngayCapNhat: new Date().toISOString(),
         }));
-        setIsUploading(false);
-      };
-      reader.readAsDataURL(file);
-    });
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      }
+    } catch (err: any) {
+      console.error('File upload error:', err);
+      alert('Đã xảy ra lỗi trong quá trình xử lý file: ' + (err.message || ''));
+    } finally {
+      setIsUploading(false);
+      setUploadStatusText('');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
+
 
   const handleRemoveFile = (fileId: string) => {
     setFormState((prev) => ({
@@ -485,6 +592,39 @@ export const TaskModal: React.FC<TaskModalProps> = ({
         ngayCapNhat: new Date().toISOString(),
       };
       await onSaveTask(updated);
+
+      // Tự động gửi email thông báo ý kiến chỉ đạo qua Google Workspace
+      if (newDirective.trim()) {
+        const config = loadSyncConfig();
+        if (config.gasWebAppUrl) {
+          const targetAccount = accounts.find(
+            (a) => a.email === formState.emailPhuTrach || 
+                   a.hoTen === formState.nguoiPhuTrach || 
+                   (a.donVi && formState.donViChuTri && a.donVi.toLowerCase().includes(formState.donViChuTri.toLowerCase()))
+          );
+          const targetEmail = formState.emailPhuTrach || targetAccount?.email;
+          if (targetEmail) {
+            const htmlBody = generateDirectiveEmailHtml({
+              taskId: formState.id,
+              taskTitle: formState.tenNhiemVu,
+              donViChuTri: formState.donViChuTri,
+              nguoiPhuTrach: formState.nguoiPhuTrach,
+              thoiHan: formState.thoiHan,
+              directiveContent: newDirective.trim(),
+              directiveAuthor: currentUser.hoTen,
+              directiveRole: currentUser.vaiTro === 'Lanh_Dao' ? 'Lãnh đạo trường' : 'Tổ CĐS',
+              directiveTime: new Date().toLocaleString('vi-VN'),
+            });
+            sendNotificationEmailViaGas(
+              config.gasWebAppUrl,
+              targetEmail,
+              `[NQ57-ĐHHV] Ý kiến chỉ đạo nhiệm vụ ${formState.id} - ${formState.donViChuTri}`,
+              htmlBody
+            ).catch((e) => console.warn('Email notification error:', e));
+          }
+        }
+      }
+
       onClose();
     } catch (err) {
       console.error('Save task error:', err);
@@ -833,14 +973,26 @@ export const TaskModal: React.FC<TaskModalProps> = ({
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isUploading}
-                    className="px-2 py-0.5 text-[11px] font-semibold text-zinc-800 bg-white hover:bg-zinc-100 border border-zinc-300 rounded flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                    className="px-2.5 py-1 text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+                    title="Tải tệp lên Google Drive thật của Trường"
                   >
-                    <Upload className="w-3 h-3" />
-                    <span>{isUploading ? 'Đang tải...' : '+ Tải lên'}</span>
+                    {isUploading ? (
+                      <RefreshCw className="w-3 h-3 animate-spin text-blue-600" />
+                    ) : (
+                      <Upload className="w-3 h-3 text-blue-600" />
+                    )}
+                    <span>{isUploading ? 'Đang tải lên...' : '+ Tải lên Drive'}</span>
                   </button>
                 </div>
               </div>
 
+              {/* Uploading progress notification */}
+              {isUploading && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 flex items-center gap-2 text-xs text-blue-800 animate-pulse">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0 text-blue-600" />
+                  <span className="font-medium text-[11px]">{uploadStatusText || 'Đang xử lý tải lên Google Drive...'}</span>
+                </div>
+              )}
 
               {/* Uploaded File List + External Link item */}
               <div className="space-y-1 max-h-28 overflow-y-auto pr-0.5">

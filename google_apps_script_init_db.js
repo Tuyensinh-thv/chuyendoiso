@@ -1660,6 +1660,121 @@ function doPost(e) {
       return createJsonResponse({ success: false, message: "Không tìm thấy tài khoản để đổi mật khẩu" });
     }
 
+    // 4. Upload file minh chứng trực tiếp lên Google Drive thật
+    if (payload.action === "uploadEvidenceFile") {
+      var folderId = payload.driveFolderId || "0AF8hu-TYNSosUk9PVA";
+      var rootFolder;
+      try {
+        rootFolder = DriveApp.getFolderById(folderId);
+      } catch (fErr) {
+        try {
+          rootFolder = DriveApp.getRootFolder();
+        } catch (rErr) {
+          return createJsonResponse({ success: false, error: "Không thể truy cập thư mục Google Drive: " + fErr.toString() });
+        }
+      }
+
+      // Tạo hoặc lấy thư mục con theo nhiệm vụ: ví dụ "NV01_RaSoatVanBan"
+      var targetFolder = rootFolder;
+      var subfolderName = payload.subfolderName;
+      if (!subfolderName && payload.taskId) {
+        var cleanTitle = (payload.taskTitle || "").substring(0, 30).replace(/[^a-zA-Z0-9]/g, "");
+        subfolderName = payload.taskId + (cleanTitle ? "_" + cleanTitle : "");
+      }
+
+      if (subfolderName) {
+        try {
+          var existingFolders = rootFolder.getFoldersByName(subfolderName);
+          if (existingFolders.hasNext()) {
+            targetFolder = existingFolders.next();
+          } else {
+            targetFolder = rootFolder.createFolder(subfolderName);
+          }
+        } catch (folderErr) {
+          targetFolder = rootFolder;
+        }
+      }
+
+      // Giải mã dữ liệu Base64
+      var rawBase64 = payload.fileBase64 || "";
+      if (rawBase64.indexOf(",") > -1) {
+        rawBase64 = rawBase64.split(",")[1];
+      }
+      var decodedBytes = Utilities.base64Decode(rawBase64);
+      var blob = Utilities.newBlob(decodedBytes, payload.mimeType || "application/octet-stream", payload.fileName);
+      var createdFile = targetFolder.createFile(blob);
+
+      // Cấp quyền xem cho bất kỳ ai có link (nếu tổ chức cho phép)
+      try {
+        createdFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      } catch (eShare) {}
+
+      var fileId = createdFile.getId();
+      var driveUrl = createdFile.getUrl();
+      var downloadUrl = createdFile.getDownloadUrl();
+      var dateNow = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
+
+      // Cập nhật vào Bảng 05_Minh_Chung_File
+      var sheetMC = ss.getSheetByName("05_Minh_Chung_File");
+      if (sheetMC) {
+        sheetMC.appendRow([
+          fileId,
+          payload.taskId || "",
+          payload.fileName,
+          payload.fileSize || createdFile.getSize(),
+          payload.mimeType || "",
+          driveUrl,
+          payload.uploadedBy || "Cán bộ HVU",
+          dateNow
+        ]);
+      }
+
+      // Cập nhật link vào Bảng 01_Nhiem_Vu_NQ57 nếu nhiệm vụ chưa có link hoặc yêu cầu cập nhật
+      var sheetNV = ss.getSheetByName("01_Nhiem_Vu_NQ57");
+      if (sheetNV && payload.taskId) {
+        var nvData = sheetNV.getDataRange().getValues();
+        for (var r = 1; r < nvData.length; r++) {
+          if (String(nvData[r][0]).trim() === String(payload.taskId).trim()) {
+            sheetNV.getRange(r + 1, 13).setValue(driveUrl); // Cột M: Link_Minh_Chung
+            sheetNV.getRange(r + 1, 16).setValue(dateNow);  // Cột P: Ngay_Cap_Nhat
+            break;
+          }
+        }
+      }
+
+      return createJsonResponse({
+        success: true,
+        fileId: fileId,
+        driveUrl: driveUrl,
+        downloadUrl: downloadUrl,
+        folderId: targetFolder.getId(),
+        folderName: targetFolder.getName()
+      });
+    }
+
+    // 5. Gửi email thông báo chỉ đạo hoặc nhắc việc tự động qua MailApp (HVU Google Workspace)
+    if (payload.action === "sendNotificationEmail") {
+      var recipient = payload.recipientEmail;
+      var subject = payload.subject || "Thông báo từ Cổng Điều Hành NQ57 - ĐHHV";
+      var htmlBody = payload.htmlBody;
+
+      if (!recipient) {
+        return createJsonResponse({ success: false, error: "Thiếu địa chỉ email người nhận." });
+      }
+
+      try {
+        MailApp.sendEmail({
+          to: recipient,
+          subject: subject,
+          htmlBody: htmlBody,
+          name: "Cổng Điều Hành NQ57 - Trường ĐH Hùng Vương"
+        });
+        return createJsonResponse({ success: true, message: "Đã gửi email thành công tới " + recipient });
+      } catch (mailErr) {
+        return createJsonResponse({ success: false, error: "Lỗi gửi email: " + mailErr.toString() });
+      }
+    }
+
     return createJsonResponse({ success: false, message: "Action không hợp lệ" });
   } catch (err) {
     return createJsonResponse({ error: err.toString() });
