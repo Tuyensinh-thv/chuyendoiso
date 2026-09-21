@@ -9,8 +9,14 @@ const LAST_SYNC_KEY = 'hvu_nq57_last_sync_v1';
 const GAS_WEBAPP_URL_KEY = 'hvu_nq57_gas_webapp_url_v1';
 const PHP_BRIDGE_URL_KEY = 'hvu_nq57_php_bridge_url_v1';
 
-/** URL mặc định PHP Bridge khi chạy XAMPP local */
-export const DEFAULT_PHP_BRIDGE_URL = 'http://localhost/chuyendoiso/api/upload_drive.php';
+/** URL mặc định PHP Bridge: Tự động theo domain hiện tại hoặc localhost khi test */
+export const DEFAULT_PHP_BRIDGE_URL =
+  typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+    ? `${window.location.origin}/api/upload_drive.php`
+    : 'http://localhost/chuyendoiso/api/upload_drive.php';
+
+/** Thư mục 3. MINH CHUNG mặc định trên Google Drive */
+export const DEFAULT_MINH_CHUNG_FOLDER_ID = '1f-ZLlT550pj_GbJb9zjMeA176EZN882I';
 
 export interface GoogleSyncConfig {
   spreadsheetId: string;
@@ -24,7 +30,7 @@ export interface GoogleSyncConfig {
 export function loadSyncConfig(): GoogleSyncConfig {
   return {
     spreadsheetId: localStorage.getItem(SPREADSHEET_ID_KEY) || '1furcGHFPPe_sIG1h78Y3leJN_eA1GnRipBYQAX6YBSc',
-    driveFolderId: localStorage.getItem(DRIVE_FOLDER_ID_KEY) || '0AF8hu-TYNSosUk9PVA',
+    driveFolderId: localStorage.getItem(DRIVE_FOLDER_ID_KEY) || DEFAULT_MINH_CHUNG_FOLDER_ID,
     gasWebAppUrl: localStorage.getItem(GAS_WEBAPP_URL_KEY) || '',
     phpBridgeUrl: localStorage.getItem(PHP_BRIDGE_URL_KEY) || DEFAULT_PHP_BRIDGE_URL,
     autoBackup: localStorage.getItem(AUTO_BACKUP_KEY) === 'true',

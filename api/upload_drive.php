@@ -37,7 +37,7 @@ foreach ($possibleSaPaths as $p) {
     }
 }
 define('SERVICE_ACCOUNT_FILE', $saPath ?? (__DIR__ . '/service_account.json'));
-define('DEFAULT_DRIVE_FOLDER_ID', '0AF8hu-TYNSosUk9PVA');
+define('DEFAULT_DRIVE_FOLDER_ID', '1f-ZLlT550pj_GbJb9zjMeA176EZN882I'); // Thư mục 3. MINH CHUNG
 define('SCOPES', 'https://www.googleapis.com/auth/drive');
 define('MAX_FILE_SIZE_MB', 50);
 
