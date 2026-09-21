@@ -24,24 +24,99 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['success' => false, 'error' => 'Chỉ chấp nhận POST request.']);
+// ─── CẤU HÌNH & TÌM SERVICE ACCOUNT KEY ───────────────────────────────────────
+$possibleSaPaths = [
+    __DIR__ . '/service_account.json',
+    __DIR__ . '/service_account.json.json',
+];
+$saPath = null;
+foreach ($possibleSaPaths as $p) {
+    if (file_exists($p)) {
+        $saPath = $p;
+        break;
+    }
+}
+define('SERVICE_ACCOUNT_FILE', $saPath ?? (__DIR__ . '/service_account.json'));
+define('DEFAULT_DRIVE_FOLDER_ID', '0AF8hu-TYNSosUk9PVA');
+define('SCOPES', 'https://www.googleapis.com/auth/drive');
+define('MAX_FILE_SIZE_MB', 50);
+
+// ─── ACTION: TEST KẾT NỐI (PING) ─────────────────────────────────────────────
+$action = trim($_REQUEST['action'] ?? '');
+if ($action === 'test' || $action === 'ping') {
+    if (!$saPath || !file_exists($saPath)) {
+        echo json_encode([
+            'success' => false,
+            'error'   => 'Chưa tìm thấy file service_account.json trong thư mục api/.',
+            'setup_guide' => getSetupGuide()
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $sa = json_decode(file_get_contents($saPath), true);
+    if (!$sa || empty($sa['private_key']) || empty($sa['client_email'])) {
+        echo json_encode([
+            'success' => false,
+            'error'   => 'File service_account.json bị thiếu private_key hoặc client_email.'
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $token = getAccessToken($sa);
+    if (!$token) {
+        echo json_encode([
+            'success' => false,
+            'error'   => 'Không tạo được Access Token từ Google. Kiểm tra lại private_key trong service_account.json.'
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $testFolderId = trim($_REQUEST['driveFolderId'] ?? DEFAULT_DRIVE_FOLDER_ID);
+    $ch = curl_init("https://www.googleapis.com/drive/v3/files/{$testFolderId}?supportsAllDrives=true&fields=id,name,capabilities");
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER     => ["Authorization: Bearer {$token}"],
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_TIMEOUT        => 10,
+    ]);
+    $res = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    $folderData = json_decode($res, true);
+    if ($code === 200 && !empty($folderData['id'])) {
+        echo json_encode([
+            'success'     => true,
+            'message'     => 'Kết nối Google Drive thành công 100%!',
+            'email'       => $sa['client_email'],
+            'projectId'   => $sa['project_id'] ?? '',
+            'folderId'    => $folderData['id'],
+            'folderName'  => $folderData['name'] ?? 'Thư mục Drive',
+            'canAddFiles' => $folderData['capabilities']['canAddChildren'] ?? true,
+        ], JSON_UNESCAPED_UNICODE);
+    } else {
+        $msg = $folderData['error']['message'] ?? "Lỗi truy cập thư mục (HTTP $code)";
+        echo json_encode([
+            'success' => false,
+            'error'   => "Đã xác thực thành công tài khoản {$sa['client_email']}, nhưng không truy cập được thư mục Drive {$testFolderId}: $msg. Hãy chắc chắn bạn đã Share thư mục này với email của Service Account và cấp quyền Editor.",
+            'email'   => $sa['client_email']
+        ], JSON_UNESCAPED_UNICODE);
+    }
     exit;
 }
 
-// ─── CẤU HÌNH ────────────────────────────────────────────────────────────────
-define('SERVICE_ACCOUNT_FILE', __DIR__ . '/service_account.json');
-define('DEFAULT_DRIVE_FOLDER_ID', '0AF8hu-TYNSosUk9PVA');
-define('SCOPES', 'https://www.googleapis.com/auth/drive.file');
-define('MAX_FILE_SIZE_MB', 50);
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    echo json_encode(['success' => false, 'error' => 'Chỉ chấp nhận POST request (hoặc GET ?action=test).']);
+    exit;
+}
 
-// ─── NHẬN THAM SỐ ─────────────────────────────────────────────────────────────
-$taskId       = trim($_POST['taskId'] ?? '');
-$taskTitle    = trim($_POST['taskTitle'] ?? '');
-$uploadedBy   = trim($_POST['uploadedBy'] ?? 'Cán bộ HVU');
-$docType      = trim($_POST['docType'] ?? 'MC');
-$driveFolderId = trim($_POST['driveFolderId'] ?? DEFAULT_DRIVE_FOLDER_ID);
-$customFileName = trim($_POST['fileName'] ?? '');  // Tên file đã chuẩn hóa từ frontend
+// ─── NHẬN THAM SỐ UPLOAD ──────────────────────────────────────────────────────
+$taskId         = trim($_POST['taskId'] ?? '');
+$taskTitle      = trim($_POST['taskTitle'] ?? '');
+$uploadedBy     = trim($_POST['uploadedBy'] ?? 'Cán bộ HVU');
+$docType        = trim($_POST['docType'] ?? 'MC');
+$driveFolderId  = trim($_POST['driveFolderId'] ?? DEFAULT_DRIVE_FOLDER_ID);
+$customFileName = trim($_POST['fileName'] ?? '');
 
 if (empty($_FILES['file'])) {
     http_response_code(400);
@@ -69,25 +144,29 @@ if ($uploadedFile['size'] > $maxBytes) {
 $finalFileName = $customFileName ?: sanitizeFileName($uploadedFile['name']);
 
 // ─── ĐỌC SERVICE ACCOUNT ─────────────────────────────────────────────────────
-if (!file_exists(SERVICE_ACCOUNT_FILE)) {
+if (!$saPath || !file_exists($saPath)) {
     echo json_encode([
         'success' => false,
-        'error'   => 'Chưa có file service_account.json. Xem hướng dẫn tạo Service Account ở phần README.',
+        'error'   => 'Chưa có file service_account.json trong thư mục api/.',
         'setup_guide' => getSetupGuide()
     ]);
     exit;
 }
 
-$sa = json_decode(file_get_contents(SERVICE_ACCOUNT_FILE), true);
+$sa = json_decode(file_get_contents($saPath), true);
 if (!$sa || empty($sa['private_key']) || empty($sa['client_email'])) {
     echo json_encode(['success' => false, 'error' => 'File service_account.json không hợp lệ hoặc bị thiếu trường.']);
     exit;
 }
 
 // ─── LẤY ACCESS TOKEN QUA JWT ────────────────────────────────────────────────
-$accessToken = getAccessToken($sa);
+$tokenError = null;
+$accessToken = getAccessToken($sa, $tokenError);
 if (!$accessToken) {
-    echo json_encode(['success' => false, 'error' => 'Không thể lấy Access Token từ Google. Kiểm tra lại service_account.json và quyền Drive.']);
+    echo json_encode([
+        'success' => false,
+        'error'   => $tokenError ?: 'Không thể lấy Access Token từ Google. Kiểm tra lại service_account.json và quyền Drive.'
+    ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -158,7 +237,7 @@ exit;
 /**
  * Tạo JWT và đổi lấy OAuth2 Access Token từ Google
  */
-function getAccessToken(array $sa): ?string
+function getAccessToken(array $sa, ?string &$errorMsg = null): ?string
 {
     $now   = time();
     $claim = [
@@ -170,27 +249,48 @@ function getAccessToken(array $sa): ?string
     ];
 
     $jwt = buildJwt($claim, $sa['private_key']);
-    if (!$jwt) return null;
+    if (!$jwt) {
+        $errorMsg = 'Không thể ký số JWT bằng private key trong service_account.json. Kiểm tra định dạng private key.';
+        return null;
+    }
 
-    $ch = curl_init('https://oauth2.googleapis.com/token');
-    curl_setopt_array($ch, [
-        CURLOPT_POST           => true,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POSTFIELDS     => http_build_query([
-            'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-            'assertion'  => $jwt,
-        ]),
-        CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
-        CURLOPT_SSL_VERIFYPEER => true,
-        CURLOPT_TIMEOUT => 15,
-    ]);
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+    // Thử tối đa 2 lần để tránh gián đoạn do mạng chập chờn
+    for ($attempt = 1; $attempt <= 2; $attempt++) {
+        $ch = curl_init('https://oauth2.googleapis.com/token');
+        curl_setopt_array($ch, [
+            CURLOPT_POST           => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POSTFIELDS     => http_build_query([
+                'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+                'assertion'  => $jwt,
+            ]),
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/x-www-form-urlencoded'],
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_TIMEOUT        => 20,
+        ]);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr  = curl_error($ch);
+        curl_close($ch);
 
-    if ($httpCode !== 200) return null;
-    $data = json_decode($response, true);
-    return $data['access_token'] ?? null;
+        if ($curlErr) {
+            $errorMsg = "Lỗi kết nối máy chủ Google: $curlErr";
+            if ($attempt < 2) { sleep(1); continue; }
+            return null;
+        }
+
+        $data = json_decode($response, true);
+        if ($httpCode === 200 && !empty($data['access_token'])) {
+            return $data['access_token'];
+        }
+
+        $errMsg = $data['error_description'] ?? $data['error'] ?? "HTTP $httpCode: $response";
+        $errorMsg = "Google từ chối cấp token: $errMsg";
+        if ($attempt < 2) { sleep(1); continue; }
+        return null;
+    }
+
+    return null;
 }
 
 /**
@@ -234,7 +334,7 @@ function uploadFileToDrive(string $token, string $tmpPath, string $fileName, str
     $body .= $fileContent . "\r\n";
     $body .= "--{$boundary}--";
 
-    $ch = curl_init('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,size');
+    $ch = curl_init('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,size&supportsAllDrives=true');
     curl_setopt_array($ch, [
         CURLOPT_POST           => true,
         CURLOPT_RETURNTRANSFER => true,
@@ -270,7 +370,7 @@ function uploadFileToDrive(string $token, string $tmpPath, string $fileName, str
  */
 function setPublicPermission(string $token, string $fileId): void
 {
-    $ch = curl_init("https://www.googleapis.com/drive/v3/files/{$fileId}/permissions");
+    $ch = curl_init("https://www.googleapis.com/drive/v3/files/{$fileId}/permissions?supportsAllDrives=true");
     curl_setopt_array($ch, [
         CURLOPT_POST           => true,
         CURLOPT_RETURNTRANSFER => true,
@@ -293,7 +393,7 @@ function getOrCreateFolder(string $token, string $folderName, string $parentId):
 {
     // Tìm folder hiện có
     $q   = urlencode("name='{$folderName}' and '{$parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false");
-    $ch  = curl_init("https://www.googleapis.com/drive/v3/files?q={$q}&fields=files(id,name)");
+    $ch  = curl_init("https://www.googleapis.com/drive/v3/files?q={$q}&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true");
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HTTPHEADER     => ["Authorization: Bearer {$token}"],
@@ -309,7 +409,7 @@ function getOrCreateFolder(string $token, string $folderName, string $parentId):
     }
 
     // Tạo folder mới
-    $ch = curl_init('https://www.googleapis.com/drive/v3/files?fields=id');
+    $ch = curl_init('https://www.googleapis.com/drive/v3/files?fields=id&supportsAllDrives=true');
     curl_setopt_array($ch, [
         CURLOPT_POST           => true,
         CURLOPT_RETURNTRANSFER => true,

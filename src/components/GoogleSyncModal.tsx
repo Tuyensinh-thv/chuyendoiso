@@ -464,18 +464,22 @@ export const GoogleSyncModal: React.FC<GoogleSyncModalProps> = ({
                       saveSyncConfig({ phpBridgeUrl: phpBridgeUrlInput.trim() });
                       setConfig(prev => ({ ...prev, phpBridgeUrl: phpBridgeUrlInput.trim() }));
                       try {
-                        const res = await fetch(phpBridgeUrlInput.trim(), { method: 'POST', body: new FormData() });
+                        const fd = new FormData();
+                        fd.append('action', 'test');
+                        fd.append('driveFolderId', driveFolderIdInput.trim() || '0AF8hu-TYNSosUk9PVA');
+                        const res = await fetch(phpBridgeUrlInput.trim(), { method: 'POST', body: fd });
                         const text = await res.text();
                         const json = JSON.parse(text);
-                        if (json.setup_guide || json.error?.includes('service_account')) {
-                          setPhpBridgeStatus('error');
-                          alert('PHP Bridge hoạt động ✅ nhưng chưa có file service_account.json.\n\n' + (json.setup_guide || json.error));
-                        } else {
+                        if (json.success) {
                           setPhpBridgeStatus('ok');
+                          alert(`✅ Kết nối Google Drive thành công!\n\n• Email Service Account: ${json.email}\n• Thư mục đích: ${json.folderName} (${json.folderId})\n• Quyền tải file: ${json.canAddFiles ? 'Được phép' : 'Hạn chế'}`);
+                        } else {
+                          setPhpBridgeStatus('error');
+                          alert(`❌ Chưa kết nối được:\n\n${json.error || 'Lỗi không xác định'}`);
                         }
                       } catch (e: any) {
                         setPhpBridgeStatus('error');
-                        alert('Không kết nối được PHP Bridge. Kiểm tra XAMPP đang chạy và URL đúng.\n\n' + e.message);
+                        alert('Không kết nối được PHP Bridge. Kiểm tra Apache XAMPP đang chạy và URL đúng.\n\nChi tiết: ' + e.message);
                       }
                     }}
                     className={`shrink-0 px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
