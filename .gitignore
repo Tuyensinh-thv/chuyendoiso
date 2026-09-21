@@ -9,3 +9,4 @@ coverage/
 # Credentials & API keys
 api/service_account*.json
 api/upload_log.json
+backups/
