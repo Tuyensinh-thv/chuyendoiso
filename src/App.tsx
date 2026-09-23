@@ -25,8 +25,10 @@ import { NewTaskModal } from './components/NewTaskModal';
 import { CategoryManagerModal } from './components/CategoryManagerModal';
 import { EthicalAiSettingsModal } from './components/EthicalAiSettingsModal';
 import { GoogleSyncModal } from './components/GoogleSyncModal';
+import { DatabaseBackupModal } from './components/DatabaseBackupModal';
 import { UserManagementModal } from './components/UserManagementModal';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
+import { fetchTasksFromSupabase } from './utils/supabaseService';
 import { LoginPage } from './components/LoginPage';
 import { QuickStatusBar } from './components/QuickStatusBar';
 import { AuditLogPanel } from './components/AuditLogPanel';
@@ -218,6 +220,7 @@ export default function App() {
         onOpenGoogleSync={() => openModal('googleSync')}
         onOpenUserManagement={() => openModal('userManagement')}
         onOpenChangePassword={() => openModal('changePassword')}
+        onOpenDatabaseBackup={() => openModal('databaseBackup')}
         searchTerm={filters.searchTerm}
         onSearchChange={(val) => setFilter('searchTerm', val)}
         isSidebarOpen={isSidebarOpen}
@@ -257,6 +260,7 @@ export default function App() {
           onOpenEthicalAiSettings={() => openModal('ethicalAiSettings')}
           onOpenGoogleSync={() => openModal('googleSync')}
           onOpenUserManagement={() => openModal('userManagement')}
+          onOpenDatabaseBackup={() => openModal('databaseBackup')}
           onOpenAuditLogs={() => {
             setActiveView('auditLogs');
             setSelectedTask(null);
@@ -731,6 +735,22 @@ export default function App() {
               actorRole: currentUser.vaiTro,
               action,
               details,
+            });
+          }}
+        />
+      )}
+
+      {/* 7d. Database Backup & Restore Manager */}
+      {activeModal === 'databaseBackup' && (
+        <DatabaseBackupModal
+          isOpen={true}
+          onClose={closeModal}
+          currentUser={currentUser}
+          onDataRestored={() => {
+            fetchTasksFromSupabase().then((freshTasks) => {
+              if (freshTasks && freshTasks.length > 0) {
+                setTasks(freshTasks);
+              }
             });
           }}
         />

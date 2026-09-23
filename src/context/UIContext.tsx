@@ -14,7 +14,8 @@ type ActiveModal =
   | 'userManagement'
   | 'changePassword'
   | 'auditLogs'
-  | 'directives';
+  | 'directives'
+  | 'databaseBackup';
 
 export type ActiveView = 'kanban' | 'table' | 'gantt' | 'calendar' | 'stats' | 'auditLogs' | 'checklistHub' | 'directives';
 

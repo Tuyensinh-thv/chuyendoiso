@@ -14,7 +14,8 @@ import {
   ArrowLeft,
   Building,
   ShieldCheck,
-  KeyRound
+  KeyRound,
+  Database,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -30,6 +31,7 @@ interface HeaderProps {
   onOpenEthicalAiSettings: () => void;
   onOpenGoogleSync?: () => void;
   onOpenUserManagement?: () => void;
+  onOpenDatabaseBackup?: () => void;
   searchTerm: string;
   onSearchChange: (value: string) => void;
   isSidebarOpen: boolean;
@@ -45,6 +47,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenDailyReminder,
   onOpenEthicalAiSettings,
   onOpenUserManagement,
+  onOpenDatabaseBackup,
   searchTerm,
   onSearchChange,
   onToggleSidebar,
@@ -262,6 +265,19 @@ export const Header: React.FC<HeaderProps> = ({
                   >
                     <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
                     <span>Cài đặt Hệ thống & AI</span>
+                  </button>
+                )}
+
+                {onOpenDatabaseBackup && (perms.canConfigureAi || currentUser.vaiTro === 'Admin' || currentUser.vaiTro === 'To_Chuyen_Trach') && (
+                  <button
+                    onClick={() => {
+                      setShowAccountDropdown(false);
+                      onOpenDatabaseBackup();
+                    }}
+                    className="w-full text-left px-2.5 py-2 text-xs text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50 rounded-xl transition-colors flex items-center gap-2 cursor-pointer font-semibold"
+                  >
+                    <Database className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Sao lưu & Khôi phục CSDL</span>
                   </button>
                 )}
 

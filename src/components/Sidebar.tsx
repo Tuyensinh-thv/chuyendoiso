@@ -29,7 +29,8 @@ import {
   Users,
   Sparkles,
   Send,
-  ListTodo
+  ListTodo,
+  Database
 } from 'lucide-react';
 import { CustomCategory, UserAccount, BaseWeworkPerspective, MenuSettings } from '../types';
 import { PLAN_GROUPS } from '../data/initialData';
@@ -50,6 +51,7 @@ interface SidebarProps {
   onOpenEthicalAiSettings: () => void;
   onOpenGoogleSync: () => void;
   onOpenUserManagement?: () => void;
+  onOpenDatabaseBackup?: () => void;
   onOpenAuditLogs?: () => void;
   onOpenDirectives?: () => void;
   onExportData: () => void;
@@ -95,6 +97,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenEthicalAiSettings,
   onOpenGoogleSync,
   onOpenUserManagement,
+  onOpenDatabaseBackup,
   onOpenAuditLogs,
   onOpenDirectives,
   onExportData,
@@ -869,6 +872,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <Sliders className="w-4 h-4 shrink-0 text-slate-400" />
             {isOpen && <span className="truncate">Cài đặt Hệ thống & AI</span>}
+          </button>
+        )}
+
+        {onOpenDatabaseBackup && (perms.canConfigureAi || currentUser.vaiTro === 'Admin' || currentUser.vaiTro === 'To_Chuyen_Trach') && (
+          <button
+            onClick={() => { onOpenDatabaseBackup(); closeOnMobile(); }}
+            className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-indigo-300 hover:text-white hover:bg-white/10 transition-colors text-xs cursor-pointer font-medium"
+            title="Sao lưu & Khôi phục CSDL Supabase và Google Drive"
+          >
+            <Database className="w-4 h-4 shrink-0 text-indigo-400" />
+            {isOpen && <span className="truncate">Sao lưu CSDL (Drive & Local)</span>}
           </button>
         )}
 
