@@ -14,3 +14,6 @@ backups/
 *.zip
 *.7z
 TS/
+# Local AI workspace configs
+.agent/
+.agents/
