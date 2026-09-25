@@ -35,8 +35,8 @@ foreach ($possibleSaPaths as $p) {
 $saFile = $saFile ?? (__DIR__ . '/service_account.json');
 
 // Cấu hình Supabase (ưu tiên từ file .env nếu có)
-$supabaseUrl = 'https://whzzmrjoztjcllxmaztk.supabase.co';
-$anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndoenptcmpvenRqY2xseG1henRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MTI5NjksImV4cCI6MjEwNDQ4ODk2OX0.nnPYuVeLo5ImuDdJeSOGrczwsluXOJ_BqMAo3Zj3Wws';
+$supabaseUrl = 'https://xnvclebtjowdeflkkiqc.supabase.co';
+$anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhudmNsZWJ0am93ZGVmbGtraXFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzMTM3MzEsImV4cCI6MjEwNTg4OTczMX0.1zEnro5kN-ZtynJ3JvgGkLHQ3ZbCkbMbXg9k77PMxY0';
 
 $envFile = dirname(__DIR__) . '/.env';
 if (file_exists($envFile)) {
