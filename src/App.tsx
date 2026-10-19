@@ -109,6 +109,7 @@ export default function App() {
     aiRecommendations,
     aiRecommendedTaskIds,
     taskCountsByCategory,
+    planGroupTaskCounts,
     assignees,
   } = useTaskStats(tasks, currentUser, ethicalAiSettings);
 
@@ -289,6 +290,7 @@ export default function App() {
           onSelectPerspective={setSelectedPerspective}
           selectedPlanGroup={filters.selectedPlanGroup}
           onSelectPlanGroup={(group) => setFilter('selectedPlanGroup', group)}
+          planGroupTaskCounts={planGroupTaskCounts}
           selectedPriority={filters.selectedPriority}
           onSelectPriority={(p) => setFilter('selectedPriority', p)}
           selectedCategory={filters.selectedCategory}
@@ -415,14 +417,17 @@ export default function App() {
                 <ProjectSubBar
                   activeView={activeView}
                   onSelectView={setActiveView}
-                selectedDept={filters.selectedDept}
-                onSelectDept={(d) => setFilter('selectedDept', d)}
-                selectedStatus={filters.selectedStatus}
-                onSelectStatus={(s) => setFilter('selectedStatus', s)}
-                selectedTimeRange={filters.selectedTimeRange}
-                onSelectTimeRange={(tr) => setFilter('selectedTimeRange', tr)}
-                selectedAssignee={filters.selectedAssignee}
-                onSelectAssignee={(a) => setFilter('selectedAssignee', a)}
+                  selectedPlanGroup={filters.selectedPlanGroup}
+                  onSelectPlanGroup={(group) => setFilter('selectedPlanGroup', group)}
+                  planGroupCounts={planGroupTaskCounts}
+                  selectedDept={filters.selectedDept}
+                  onSelectDept={(d) => setFilter('selectedDept', d)}
+                  selectedStatus={filters.selectedStatus}
+                  onSelectStatus={(s) => setFilter('selectedStatus', s)}
+                  selectedTimeRange={filters.selectedTimeRange}
+                  onSelectTimeRange={(tr) => setFilter('selectedTimeRange', tr)}
+                  selectedAssignee={filters.selectedAssignee}
+                  onSelectAssignee={(a) => setFilter('selectedAssignee', a)}
                 assignees={assignees}
                 sortBy={sort.sortBy}
                 onSortByChange={setSortBy}

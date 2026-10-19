@@ -74,6 +74,7 @@ interface SidebarProps {
   onSelectPerspective: (perspective: BaseWeworkPerspective) => void;
   selectedPlanGroup: string;
   onSelectPlanGroup: (plan: string) => void;
+  planGroupTaskCounts?: Record<string, number>;
   selectedPriority: string;
   onSelectPriority: (priority: string) => void;
   selectedCategory: string;
@@ -117,6 +118,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectPerspective,
   selectedPlanGroup,
   onSelectPlanGroup,
+  planGroupTaskCounts,
   selectedPriority,
   onSelectPriority,
   selectedCategory,
@@ -320,6 +322,100 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
             )}
           </button>
+        </div>
+
+        {/* SECTION 1.5: Nhiệm vụ theo Tháng (Google Sheets) - Luôn hiển thị ngay đầu Sidebar */}
+        <div className="space-y-1 pt-2 border-t border-slate-800">
+          {isOpen && (
+            <div className="px-3 flex items-center justify-between mb-1">
+              <p className="text-[10px] font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
+                <FileSpreadsheet className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                <span>Nhiệm vụ theo Tháng</span>
+              </p>
+              {(selectedPlanGroup === 'Đại học Hùng Vương - Tháng 9' || selectedPlanGroup === 'Đại học Hùng Vương - Tháng 10') && (
+                <button
+                  onClick={() => onSelectPlanGroup('all')}
+                  className="text-sky-300 hover:text-white text-[10px] font-medium lowercase tracking-normal cursor-pointer"
+                >
+                  tất cả
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Tháng 9 */}
+          {(() => {
+            const plan = 'Đại học Hùng Vương - Tháng 9';
+            const isSelected = selectedPlanGroup === plan;
+            const count = planGroupTaskCounts?.[plan] ?? 83;
+            return (
+              <button
+                key={plan}
+                onClick={() => {
+                  onSelectPlanGroup(isSelected ? 'all' : plan);
+                  if (!isSelected) onSelectPerspective('all');
+                  closeOnMobile();
+                }}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all text-left font-medium cursor-pointer ${
+                  isSelected
+                    ? 'bg-sky-600 text-white font-bold shadow-md shadow-sky-900/50 ring-1 ring-sky-300'
+                    : 'text-sky-100 hover:bg-sky-950/50 hover:text-white border border-sky-900/40'
+                }`}
+                title="Đại học Hùng Vương - Tháng 9 (83 nhiệm vụ)"
+              >
+                <div className="flex items-center gap-2.5 min-w-0 pr-1">
+                  <CalendarIcon className={`w-4 h-4 shrink-0 ${isSelected ? 'text-white' : 'text-sky-400'}`} />
+                  {isOpen && <span className="truncate font-semibold text-xs">ĐH Hùng Vương - Tháng 9</span>}
+                </div>
+                {isOpen && (
+                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold shrink-0 ${
+                    isSelected
+                      ? 'bg-white text-sky-900 shadow-xs'
+                      : 'bg-sky-950 text-sky-300 border border-sky-800'
+                  }`}>
+                    {count} nhiệm vụ
+                  </span>
+                )}
+              </button>
+            );
+          })()}
+
+          {/* Tháng 10 */}
+          {(() => {
+            const plan = 'Đại học Hùng Vương - Tháng 10';
+            const isSelected = selectedPlanGroup === plan;
+            const count = planGroupTaskCounts?.[plan] ?? 49;
+            return (
+              <button
+                key={plan}
+                onClick={() => {
+                  onSelectPlanGroup(isSelected ? 'all' : plan);
+                  if (!isSelected) onSelectPerspective('all');
+                  closeOnMobile();
+                }}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all text-left font-medium cursor-pointer ${
+                  isSelected
+                    ? 'bg-sky-600 text-white font-bold shadow-md shadow-sky-900/50 ring-1 ring-sky-300'
+                    : 'text-sky-100 hover:bg-sky-950/50 hover:text-white border border-sky-900/40'
+                }`}
+                title="Đại học Hùng Vương - Tháng 10 (49 nhiệm vụ)"
+              >
+                <div className="flex items-center gap-2.5 min-w-0 pr-1">
+                  <CalendarIcon className={`w-4 h-4 shrink-0 ${isSelected ? 'text-white' : 'text-sky-400'}`} />
+                  {isOpen && <span className="truncate font-semibold text-xs">ĐH Hùng Vương - Tháng 10</span>}
+                </div>
+                {isOpen && (
+                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold shrink-0 ${
+                    isSelected
+                      ? 'bg-white text-sky-900 shadow-xs'
+                      : 'bg-sky-950 text-sky-300 border border-sky-800'
+                  }`}>
+                    {count} nhiệm vụ
+                  </span>
+                )}
+              </button>
+            );
+          })()}
         </div>
 
         {/* SECTION 2: Role-Tailored Perspectives */}
@@ -652,12 +748,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* SECTION 3: Base Wework Projects / Plan Groups NQ57 */}
+        {/* SECTION 2.5: Kế hoạch công tác HVU (Tháng 9 & Tháng 10) */}
         <div className="space-y-0.5 pt-2 border-t border-slate-800">
           {isOpen && (
-            <p className="px-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center justify-between">
-              <span>Kế hoạch & Dự án NQ57</span>
-              {selectedPlanGroup !== 'all' && (
+            <p className="px-3 text-[10px] font-bold text-sky-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+              <span>Kế hoạch HVU theo Tháng</span>
+              {selectedPlanGroup !== 'all' && selectedPlanGroup.includes('Tháng') && (
                 <button
                   onClick={() => onSelectPlanGroup('all')}
                   className="text-slate-400 hover:text-white font-normal lowercase tracking-normal cursor-pointer"
@@ -668,24 +764,94 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </p>
           )}
 
-          {PLAN_GROUPS.map((plan) => {
+          {PLAN_GROUPS.filter(p => p.includes('Tháng')).map((plan) => {
             const isSelected = selectedPlanGroup === plan;
+            const count = planGroupTaskCounts?.[plan] ?? 0;
+            return (
+              <button
+                key={plan}
+                onClick={() => {
+                  onSelectPlanGroup(isSelected ? 'all' : plan);
+                  if (!isSelected) onSelectPerspective('all');
+                  closeOnMobile();
+                }}
+                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all text-left font-medium cursor-pointer ${
+                  isSelected
+                    ? 'bg-sky-900/60 text-white font-semibold ring-1 ring-sky-500'
+                    : 'text-slate-300 hover:bg-slate-850 hover:text-white'
+                }`}
+                title={`${plan} (${count} nhiệm vụ)`}
+              >
+                <div className="flex items-center gap-2 min-w-0 pr-1">
+                  <CalendarIcon className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-sky-300' : 'text-sky-400'}`} />
+                  {isOpen && <span className="truncate text-xs font-semibold">{plan}</span>}
+                </div>
+                {isOpen && (
+                  <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full font-bold shrink-0 ${
+                    isSelected 
+                      ? 'bg-sky-500 text-white' 
+                      : count > 0 
+                      ? 'bg-sky-950 text-sky-300 border border-sky-800/60' 
+                      : 'text-slate-600'
+                  }`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* SECTION 3: Kế hoạch trọng tâm NQ57 */}
+        <div className="space-y-0.5 pt-2 border-t border-slate-800">
+          {isOpen && (
+            <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+              <span>Kế hoạch trọng tâm NQ57</span>
+              {selectedPlanGroup !== 'all' && !selectedPlanGroup.includes('Tháng') && (
+                <button
+                  onClick={() => onSelectPlanGroup('all')}
+                  className="text-slate-400 hover:text-white font-normal lowercase tracking-normal cursor-pointer"
+                >
+                  tất cả
+                </button>
+              )}
+            </p>
+          )}
+
+          {PLAN_GROUPS.filter(p => !p.includes('Tháng')).map((plan) => {
+            const isSelected = selectedPlanGroup === plan;
+            const count = planGroupTaskCounts?.[plan] ?? 0;
             const shortName = plan.replace('Kế hoạch ', 'KH ');
             return (
               <button
                 key={plan}
-                onClick={() => { onSelectPlanGroup(isSelected ? 'all' : plan); closeOnMobile(); }}
+                onClick={() => {
+                  onSelectPlanGroup(isSelected ? 'all' : plan);
+                  if (!isSelected) onSelectPerspective('all');
+                  closeOnMobile();
+                }}
                 className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg transition-all text-left font-medium cursor-pointer ${
                   isSelected
-                    ? 'bg-slate-800 text-white font-semibold'
+                    ? 'bg-slate-800 text-white font-semibold ring-1 ring-slate-700'
                     : 'text-slate-300 hover:bg-slate-850 hover:text-white'
                 }`}
-                title={plan}
+                title={`${plan} (${count} nhiệm vụ)`}
               >
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0 pr-1">
                   <Layers className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-white' : 'text-slate-400'}`} />
                   {isOpen && <span className="truncate text-xs">{shortName}</span>}
                 </div>
+                {isOpen && (
+                  <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full font-bold shrink-0 ${
+                    isSelected 
+                      ? 'bg-white/20 text-white' 
+                      : count > 0 
+                      ? 'bg-slate-800 text-slate-300' 
+                      : 'text-slate-600'
+                  }`}>
+                    {count}
+                  </span>
+                )}
               </button>
             );
           })}

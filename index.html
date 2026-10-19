@@ -14,8 +14,26 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Montserrat:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+      window.__capturedErrors = [];
+      window.addEventListener('error', function(e) {
+        var msg = 'JS ERROR: ' + (e.message || e) + '\n' + (e.error ? e.error.stack : '') + '\nFile: ' + e.filename + ':' + e.lineno;
+        window.__capturedErrors.push(msg);
+        console.error(msg);
+        var el = document.getElementById('debug-error-box');
+        if (el) { el.style.display = 'block'; el.innerText += '\n\n' + msg; }
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        var msg = 'PROMISE REJECTION: ' + (e.reason ? (e.reason.stack || e.reason) : e);
+        window.__capturedErrors.push(msg);
+        console.error(msg);
+        var el = document.getElementById('debug-error-box');
+        if (el) { el.style.display = 'block'; el.innerText += '\n\n' + msg; }
+      });
+    </script>
   </head>
   <body>
+    <div id="debug-error-box" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:#be1e2d;color:white;padding:16px;font-family:monospace;font-size:14px;white-space:pre-wrap;box-shadow:0 4px 12px rgba(0,0,0,0.5);"></div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

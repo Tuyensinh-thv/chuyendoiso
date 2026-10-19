@@ -92,6 +92,16 @@ export function useTaskStats(
     [tasks]
   );
 
+  const planGroupTaskCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const t of tasks) {
+      if (t.nhomKeHoach) {
+        map[t.nhomKeHoach] = (map[t.nhomKeHoach] || 0) + 1;
+      }
+    }
+    return map;
+  }, [tasks]);
+
   return {
     perms,
     accessibleTasks,
@@ -106,6 +116,7 @@ export function useTaskStats(
     aiRecommendations,
     aiRecommendedTaskIds,
     taskCountsByCategory,
+    planGroupTaskCounts,
     assignees,
   };
 }

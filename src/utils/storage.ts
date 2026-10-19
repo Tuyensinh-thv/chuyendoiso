@@ -10,7 +10,7 @@ import {
 
 export type { AuditLogEntry };
 
-const TASKS_KEY = 'hvu_nq57_tasks_v7';
+const TASKS_KEY = 'hvu_nq57_tasks_v9';
 const CURRENT_USER_KEY = 'hvu_nq57_current_user_v3';
 const ACCOUNTS_KEY = 'hvu_nq57_accounts_v3';
 const REMINDER_SETTINGS_KEY = 'hvu_nq57_reminder_settings';
@@ -163,28 +163,33 @@ export const DEFAULT_PASSWORD_HASH = '755ba7f3aae8ee88024d0d0ee89bbd3ad80dfa9dee
 export function loadTasksFromStorage(): TaskNQ57[] {
   try {
     // Clean up old versions
-    ['hvu_nq57_tasks_v2', 'hvu_nq57_tasks_v3', 'hvu_nq57_tasks_v4', 'hvu_nq57_tasks_v5', 'hvu_nq57_tasks_v6'].forEach(k => {
+    ['hvu_nq57_tasks_v2', 'hvu_nq57_tasks_v3', 'hvu_nq57_tasks_v4', 'hvu_nq57_tasks_v5', 'hvu_nq57_tasks_v6', 'hvu_nq57_tasks_v7', 'hvu_nq57_tasks_v8'].forEach(k => {
       if (localStorage.getItem(k)) localStorage.removeItem(k);
     });
     const data = localStorage.getItem(TASKS_KEY);
     if (data) {
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        const valid = parsed.filter((t): t is TaskNQ57 => !!(t && typeof t === 'object' && t.id));
+        if (valid.length > 0) {
+          return valid;
+        }
       }
     }
   } catch (err) {
     console.error('Failed to load tasks from storage', err);
   }
+  const safeInitial = (INITIAL_TASKS || []).filter((t): t is TaskNQ57 => !!(t && typeof t === 'object' && t.id));
   try {
-    localStorage.setItem(TASKS_KEY, JSON.stringify(INITIAL_TASKS));
+    localStorage.setItem(TASKS_KEY, JSON.stringify(safeInitial));
   } catch (e) {}
-  return INITIAL_TASKS;
+  return safeInitial;
 }
 
 export function saveTasksToStorage(tasks: TaskNQ57[]): void {
   try {
-    localStorage.setItem(TASKS_KEY, JSON.stringify(tasks));
+    const valid = (tasks || []).filter((t): t is TaskNQ57 => !!(t && typeof t === 'object' && t.id));
+    localStorage.setItem(TASKS_KEY, JSON.stringify(valid));
   } catch (err) {
     console.error('Failed to save tasks to storage', err);
   }

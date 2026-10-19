@@ -12,13 +12,17 @@ import {
   Calendar,
   RotateCcw
 } from 'lucide-react';
-import { DEPARTMENTS } from '../data/initialData';
+import { DEPARTMENTS, PLAN_GROUPS } from '../data/initialData';
+import { Layers } from 'lucide-react';
 
 import { ActiveView } from '../context/UIContext';
 
 interface ProjectSubBarProps {
   activeView?: ActiveView;
   onSelectView?: (view: ActiveView) => void;
+  selectedPlanGroup?: string;
+  onSelectPlanGroup?: (plan: string) => void;
+  planGroupCounts?: Record<string, number>;
   selectedDept: string;
   onSelectDept: (dept: string) => void;
   selectedStatus: string;
@@ -37,6 +41,9 @@ interface ProjectSubBarProps {
 
 export const ProjectSubBar: React.FC<ProjectSubBarProps> = ({
   activeView = 'table',
+  selectedPlanGroup = 'all',
+  onSelectPlanGroup,
+  planGroupCounts,
   selectedDept,
   onSelectDept,
   selectedStatus,
@@ -72,12 +79,14 @@ export const ProjectSubBar: React.FC<ProjectSubBarProps> = ({
   const ViewIcon = currentView.icon;
 
   const hasActiveFilter = 
+    selectedPlanGroup !== 'all' ||
     selectedDept !== 'all' || 
     selectedStatus !== '' || 
     selectedTimeRange !== 'all' || 
     selectedAssignee !== 'all';
 
   const handleResetFilters = () => {
+    if (onSelectPlanGroup) onSelectPlanGroup('all');
     onSelectDept('all');
     onSelectStatus('');
     if (onSelectTimeRange) onSelectTimeRange('all');
@@ -113,6 +122,33 @@ export const ProjectSubBar: React.FC<ProjectSubBarProps> = ({
       {/* 2. Right: Strictly Single-Row Filter Controls & Sorting */}
       <div className="flex items-center gap-1.5 shrink-0 text-xs">
         
+        {/* Plan Group Filter */}
+        {onSelectPlanGroup && (
+          <div className={`flex items-center rounded-lg px-2 py-1 transition-colors border ${
+            selectedPlanGroup !== 'all'
+              ? 'bg-sky-50 border-sky-300 text-sky-900 font-semibold'
+              : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
+          }`}>
+            <Layers className="w-3.5 h-3.5 text-sky-500 mr-1 shrink-0" />
+            <select
+              value={selectedPlanGroup}
+              onChange={(e) => onSelectPlanGroup(e.target.value)}
+              className="bg-transparent text-xs text-slate-800 font-medium focus:outline-hidden cursor-pointer max-w-[200px] truncate"
+              title="Lọc theo kế hoạch / nhiệm vụ"
+            >
+              <option value="all">Kế hoạch: Tất cả</option>
+              {PLAN_GROUPS.map((p) => {
+                const count = planGroupCounts?.[p];
+                return (
+                  <option key={p} value={p}>
+                    {p}{count !== undefined ? ` (${count})` : ''}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        )}
+
         {/* Department Filter */}
         <div className="flex items-center bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2 py-1 text-slate-700 transition-colors">
           <Building className="w-3.5 h-3.5 text-slate-400 mr-1 shrink-0" />

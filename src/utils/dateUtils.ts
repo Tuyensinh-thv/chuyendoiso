@@ -11,7 +11,10 @@ export function getDaysDifference(deadlineStr: string, baseDateStr = CURRENT_DAT
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 }
 
-export function computeTaskStatus(task: TaskNQ57, baseDateStr = CURRENT_DATE_STRING): TaskStatus {
+export function computeTaskStatus(task?: TaskNQ57 | null, baseDateStr = CURRENT_DATE_STRING): TaskStatus {
+  if (!task || typeof task !== 'object') {
+    return 'Chưa thực hiện';
+  }
   if (task.trangThai === 'Đã hoàn thành') {
     return 'Đã hoàn thành';
   }
@@ -22,7 +25,7 @@ export function computeTaskStatus(task: TaskNQ57, baseDateStr = CURRENT_DATE_STR
   if (daysDiff <= 3) {
     return 'Sắp đến hạn';
   }
-  if (task.tiendo > 0 || task.trangThai === 'Đang thực hiện') {
+  if ((task.tiendo ?? 0) > 0 || task.trangThai === 'Đang thực hiện') {
     return 'Đang thực hiện';
   }
   return 'Chưa thực hiện';
